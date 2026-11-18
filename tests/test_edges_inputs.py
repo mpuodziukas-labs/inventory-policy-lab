@@ -196,6 +196,77 @@ def test_simulate_accepts_a_warm_up_of_zero():
     simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 50, 0)
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1])
+def test_simulate_rejects_a_bad_value_in_the_first_history_position(bad):
+    with pytest.raises(ValueError, match=r"history values must be finite and not negative"):
+        simulate([bad, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 20, 2)
+
+
+@pytest.mark.parametrize("rop", [float("inf"), float("-inf"), float("nan"), -1])
+def test_simulate_rejects_a_reorder_point_that_is_not_finite_or_is_negative(rop):
+    p = run_child(f"from policy.simulate import simulate\nsimulate([5, 6, 7], float('{rop}'), 5, [1, 2], [0.5, 0.5], 1, 20, 2)\n")
+    assert p.returncode != 0
+    assert "ValueError: reorder point must be finite and not negative" in p.stderr
+
+
+def test_simulate_accepts_a_reorder_point_of_zero():
+    simulate([5, 6, 7], 0, 5, [1, 2], [0.5, 0.5], 1, 50, 2)
+
+
+@pytest.mark.parametrize("warmup", [2.0, 2.5, float("nan"), True])
+def test_simulate_rejects_a_warm_up_that_is_not_a_whole_number(warmup):
+    with pytest.raises(ValueError, match=r"warmup must be a whole number"):
+        simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 20, warmup)
+
+
+@pytest.mark.parametrize("qty", [float("inf"), float("nan")])
+def test_simulate_rejects_an_order_quantity_that_is_not_finite(qty):
+    with pytest.raises(ValueError, match=r"order quantity must be positive and finite"):
+        simulate([5, 6, 7], 10, qty, [1, 2], [0.5, 0.5], 1, 20, 2)
+
+
+def test_simulate_reports_a_negative_fractional_window_as_not_whole_before_not_positive():
+    with pytest.raises(ValueError, match=r"weeks must be a whole number"):
+        simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, -1.5, 2)
+
+
+def test_simulate_reports_the_window_before_the_warm_up():
+    with pytest.raises(ValueError, match=r"weeks must be positive"):
+        simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 0, -1)
+    with pytest.raises(ValueError, match=r"weeks must be positive"):
+        simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 0, 1.5)
+
+
+def test_simulate_reports_history_values_before_the_reorder_point_and_the_order_quantity():
+    with pytest.raises(ValueError, match=r"history values must be finite and not negative"):
+        simulate([-1], -1, 0, [1], [1.0], 1, 20, 2)
+
+
+def test_simulate_reports_the_reorder_point_before_the_order_quantity():
+    with pytest.raises(ValueError, match=r"reorder point must be finite and not negative"):
+        simulate([5, 6, 7], -1, 0, [1], [1.0], 1, 20, 2)
+
+
+def test_simulate_reports_the_order_quantity_before_the_lead_values():
+    with pytest.raises(ValueError, match=r"order quantity must be positive"):
+        simulate([5, 6, 7], 10, 0, [0], [1.0], 1, 20, 2)
+
+
+def test_simulate_reports_bad_lead_values_before_a_length_mismatch():
+    with pytest.raises(ValueError, match=r"lead values must be whole weeks of at least 1"):
+        simulate([5, 6, 7], 10, 5, [0], [0.5, 0.5], 1, 20, 2)
+
+
+def test_moving_average_reports_the_window_before_the_empty_series():
+    with pytest.raises(ValueError, match=r"moving average window must be at least 1"):
+        fc.moving_average([], 0)
+
+
+def test_wape_reports_non_finite_input_before_a_negative_actual():
+    with pytest.raises(ValueError, match=r"finite"):
+        fc.wape([-1, float("nan")], [0, 0])
+
+
 @pytest.mark.parametrize("weeks", [20.0, 20.5, True])
 def test_simulate_rejects_a_window_that_is_not_a_whole_number(weeks):
     with pytest.raises(ValueError, match=r"weeks must be a whole number"):

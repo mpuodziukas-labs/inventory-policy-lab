@@ -18,20 +18,61 @@ def load_config():
     return json.loads((ROOT / "config.json").read_text())
 
 
+def validate_config(cfg):
+    if cfg["service_target"] not in cfg["service_levels"]:
+        raise ValueError(f"service_levels must include the service target {cfg['service_target']}")
+    if not (math.isfinite(cfg["tolerance"]) and cfg["tolerance"] >= 0):
+        raise ValueError("tolerance must be finite and not negative")
+    if not 0 < cfg["ses_alpha"] <= 1:
+        raise ValueError("ses_alpha must be above 0 and at most 1")
+    for key in ("sim_weeks", "sim_warmup_weeks"):
+        if type(cfg[key]) is not int:
+            raise ValueError(f"{key} must be a whole number")
+
+
+def _read_rows(name, columns):
+    """Rows of a data file as dicts; ValueError names the file when a column is missing."""
+    with open(ROOT / "data" / name, newline="") as f:
+        reader = csv.DictReader(f)
+        for col in columns:
+            if col not in (reader.fieldnames or []):
+                raise ValueError(f"{name}: missing column {col}")
+        return list(reader)
+
+
 def load_series():
-    series, order = {}, []
-    with open(ROOT / "data" / "weekly_demand.csv", newline="") as f:
-        for r in csv.DictReader(f):
-            if r["stock_code"] not in series:
-                series[r["stock_code"]] = []
-                order.append(r["stock_code"])
-            series[r["stock_code"]].append(int(r["units"]))
-    return {k: series[k] for k in sorted(order)}
+    rows = _read_rows("weekly_demand.csv", ("iso_week", "stock_code", "units"))
+    if not rows:
+        raise ValueError("weekly_demand.csv: no data rows")
+    series, seen = {}, set()
+    for r in rows:
+        code, week = r["stock_code"], r["iso_week"]
+        if (code, week) in seen:
+            raise ValueError(f"weekly_demand.csv: duplicate row for SKU {code} in week {week}")
+        seen.add((code, week))
+        try:
+            units = int(r["units"])
+        except (TypeError, ValueError):
+            units = -1
+        if units < 0:
+            raise ValueError(
+                f"weekly_demand.csv: units for SKU {code} in week {week} must be a whole number of at least 0")
+        series.setdefault(code, []).append(units)
+    return {k: series[k] for k in sorted(series)}
 
 
 def load_prices():
-    with open(ROOT / "data" / "sku_price.csv", newline="") as f:
-        return {r["stock_code"]: (float(r["median_unit_price"]), r["description"]) for r in csv.DictReader(f)}
+    prices = {}
+    for r in _read_rows("sku_price.csv", ("stock_code", "median_unit_price", "description")):
+        try:
+            price = float(r["median_unit_price"])
+        except (TypeError, ValueError):
+            price = math.nan
+        if not (math.isfinite(price) and price > 0):
+            raise ValueError(
+                f"sku_price.csv: median_unit_price for SKU {r['stock_code']} must be a finite number above 0")
+        prices[r["stock_code"]] = (price, r["description"])
+    return prices
 
 
 def skewness(xs):
@@ -43,6 +84,7 @@ def skewness(xs):
 
 def run(safety_stock_fn=safety_stock):
     cfg = load_config()
+    validate_config(cfg)
     series, prices = load_series(), load_prices()
     first_code = next(iter(series))
     weeks = len(series[first_code])
@@ -50,6 +92,9 @@ def run(safety_stock_fn=safety_stock):
         if len(ys) != weeks:
             raise ValueError(
                 f"SKU {code} has {len(ys)} weeks but SKU {first_code} has {weeks}; every SKU needs the same number of weeks")
+    for code in series:
+        if code not in prices:
+            raise ValueError(f"sku_price.csv: no price row for SKU {code}")
     lv, lp = cfg["lead_time_weeks"]["values"], cfg["lead_time_weeks"]["probs"]
     lead_mean = sum(v * p for v, p in zip(lv, lp))
     lead_sd = math.sqrt(sum(p * (v - lead_mean) ** 2 for v, p in zip(lv, lp)))

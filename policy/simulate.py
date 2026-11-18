@@ -25,14 +25,18 @@ def simulate(history, reorder_point, order_qty, lead_values, lead_probs, seed, w
         raise ValueError("weeks must be a whole number")
     if weeks <= 0:
         raise ValueError("weeks must be positive")
+    if type(warmup) is not int:
+        raise ValueError("warmup must be a whole number")
     if warmup < 0:
         raise ValueError("warmup must not be negative")
     if not history:
         raise ValueError("history must not be empty")
     if any(not math.isfinite(v) or v < 0 for v in history):
         raise ValueError("history values must be finite and not negative")
-    if order_qty <= 0:
-        raise ValueError("order quantity must be positive")
+    if not math.isfinite(reorder_point) or reorder_point < 0:
+        raise ValueError("reorder point must be finite and not negative")
+    if not math.isfinite(order_qty) or order_qty <= 0:
+        raise ValueError("order quantity must be positive and finite")
     if any(type(v) is not int or v < 1 for v in lead_values):
         raise ValueError("lead values must be whole weeks of at least 1")
     if len(lead_values) != len(lead_probs):

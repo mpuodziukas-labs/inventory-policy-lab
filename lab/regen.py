@@ -1,5 +1,6 @@
 """Rebuild every generated artefact: report, recommendation, result tables, README block."""
 import csv
+import io
 import sys
 from pathlib import Path
 
@@ -11,12 +12,13 @@ from lab import pipeline, render  # noqa: E402
 START, END = "<!-- RESULTS:START -->", "<!-- RESULTS:END -->"
 
 
-def write_csv(path, rows, fields):
-    with open(path, "w", newline="") as f:
-        w = csv.writer(f, lineterminator="\n")
-        w.writerow(fields)
-        for r in rows:
-            w.writerow([f"{r[k]:.4f}" if isinstance(r[k], float) else r[k] for k in fields])
+def csv_text(rows, fields):
+    out = io.StringIO()
+    w = csv.writer(out, lineterminator="\n")
+    w.writerow(fields)
+    for r in rows:
+        w.writerow([f"{r[k]:.4f}" if isinstance(r[k], float) else r[k] for k in fields])
+    return out.getvalue()
 
 
 def main():
@@ -25,20 +27,24 @@ def main():
     if text.count(START) != 1 or text.count(END) != 1 or text.index(START) > text.index(END):
         sys.exit("README markers missing or not exactly one START before one END")
     res = pipeline.run()
-    (ROOT / "report").mkdir(exist_ok=True)
-    (ROOT / "docs").mkdir(exist_ok=True)
-    (ROOT / "results").mkdir(exist_ok=True)
-    (ROOT / "report" / "index.html").write_text(render.render_report(res))
-    (ROOT / "docs" / "recommendation.md").write_text(render.render_recommendation(res))
-    write_csv(ROOT / "results" / "sensitivity.csv", res["sensitivity"],
-              ["service_level", "z", "safety_stock_units", "safety_stock_holding_cost", "total_holding_cost"])
-    write_csv(ROOT / "results" / "sku_policy.csv", res["skus"],
-              ["code", "mean_weekly", "sd_weekly", "eoq", "safety_stock", "reorder_point", "cycle_service_level",
-               "fill_rate", "stockout_weeks_per_year", "avg_inventory", "turns", "wape_naive", "wape_ma",
-               "wape_ses", "meets_target", "cause"])
     head, rest = text.split(START, 1)
     tail = rest.split(END, 1)[1]
-    readme.write_text(f"{head}{START}\n{render.render_readme_block(res)}{END}{tail}")
+    outputs = {
+        ROOT / "report" / "index.html": render.render_report(res),
+        ROOT / "docs" / "recommendation.md": render.render_recommendation(res),
+        ROOT / "results" / "sensitivity.csv": csv_text(
+            res["sensitivity"],
+            ["service_level", "z", "safety_stock_units", "safety_stock_holding_cost", "total_holding_cost"]),
+        ROOT / "results" / "sku_policy.csv": csv_text(
+            res["skus"],
+            ["code", "mean_weekly", "sd_weekly", "eoq", "safety_stock", "reorder_point", "cycle_service_level",
+             "fill_rate", "stockout_weeks_per_year", "avg_inventory", "turns", "wape_naive", "wape_ma",
+             "wape_ses", "meets_target", "cause"]),
+        readme: f"{head}{START}\n{render.render_readme_block(res)}{END}{tail}",
+    }
+    for path, content in outputs.items():
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(content)
     print("regen ok")
 
 

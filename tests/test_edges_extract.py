@@ -40,6 +40,31 @@ def test_full_weeks_boundaries():
     assert m.full_weeks(datetime(2011, 1, 4), datetime(2011, 1, 16)) == ["2011-W02"]
 
 
+def test_rows_without_a_unit_price_are_skipped_and_main_completes(tmp_path, monkeypatch):
+    m = load_extract()
+    d1, d2 = datetime(2011, 1, 4, 10), datetime(2011, 1, 11, 10)
+    rows = [
+        ("A0", "POST", 1, datetime(2011, 1, 3, 0, 0), 1.0, "post"),
+        ("A1", "10001", 1, d1, 1.0, "small seller"),
+        ("A2", "10001", 1, d2, 1.0, "small seller"),
+        ("A3", "10002", 10, d1, 2.0, "big seller"),
+        ("A4", "10002", 5, d2, 2.0, "big seller"),
+        ("A5", "10002", 7, d1, None, "big seller"),
+        ("A6", "10003", 100, d1, None, "no price at all"),
+        ("A7", "POST", 1, datetime(2011, 1, 16, 12, 0), 1.0, "post"),
+    ]
+    assert m.aggregate([r[:5] for r in rows]) == {
+        ("2011-W01", "10001"): 1, ("2011-W02", "10001"): 1, ("2011-W01", "10002"): 10, ("2011-W02", "10002"): 5}
+    monkeypatch.setattr(m, "read_rows", lambda path: iter(rows))
+    m.main(["x", "ignored.xlsx", str(tmp_path)])
+    with open(tmp_path / "weekly_demand.csv", newline="") as f:
+        got = list(csv.DictReader(f))
+    assert {r["stock_code"] for r in got} == {"10001", "10002"}
+    assert [r["units"] for r in got if r["stock_code"] == "10002"] == ["10", "5"]
+    with open(tmp_path / "sku_price.csv", newline="") as f:
+        assert [r["stock_code"] for r in csv.DictReader(f)] == ["10001", "10002"]
+
+
 def test_main_ranks_ties_by_units_and_prices_by_median(tmp_path, monkeypatch):
     m = load_extract()
     d1, d2 = datetime(2011, 1, 4, 10), datetime(2011, 1, 11, 10)
