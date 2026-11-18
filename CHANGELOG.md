@@ -15,3 +15,4 @@
 - fix: reject negative windows, actuals and decompose inputs, mae length mismatch; pin skewness and error chain
 - fix: pin wape check order, reject length mismatch and non-finite inputs
 - test: pin length-before-finite order in wape and mae, meets_target boundary
+- test: pin draw fallback, short-history average, lead-time weights, tie and marker handling; drop unused next-week forecast
