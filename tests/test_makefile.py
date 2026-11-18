@@ -107,5 +107,14 @@ def test_regen_recipe_is_exactly_one_plain_command_that_cannot_hide_a_failure():
     assert "||" not in raw[0] and ";" not in raw[0]
 
 
+def test_ci_sets_python_up_with_setup_python_v5():
+    assert CI.read_text().count("      - uses: actions/setup-python@v5\n") == 1
+
+
+def test_ci_installs_exactly_pytest():
+    assert ci_runs().count("pip install pytest") == 1
+    assert not any(r.startswith("pip install") and r != "pip install pytest" for r in ci_runs())
+
+
 def test_ci_checks_the_repository_out_with_checkout_v4():
     assert "uses: actions/checkout@v4\n" in (ROOT / ".github" / "workflows" / "ci.yml").read_text()

@@ -25,6 +25,8 @@ def main():
     readme = ROOT / "README.md"
     try:
         text = readme.read_text(encoding="utf-8")
+    except FileNotFoundError as e:
+        raise ValueError("README.md not found") from e
     except UnicodeDecodeError as e:
         raise ValueError("README.md is not valid UTF-8") from e
     if text.count(START) != 1 or text.count(END) != 1 or text.index(START) > text.index(END):

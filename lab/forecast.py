@@ -21,6 +21,8 @@ def moving_average(history, k):
 
 
 def ses(history, alpha):
+    if not 0 < alpha <= 1:  # also rejects NaN, which fails every comparison
+        raise ValueError("ses alpha must be above 0 and at most 1")
     _require_series(history)
     level = history[0]
     for y in history[1:]:

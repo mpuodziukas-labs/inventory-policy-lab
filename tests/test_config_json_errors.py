@@ -32,6 +32,15 @@ def test_malformed_json_is_named_as_json_and_never_as_utf8(lab_dir):
     assert isinstance(err.value.__cause__, json.JSONDecodeError)
 
 
+def test_a_config_that_starts_with_a_byte_order_mark_is_not_valid_json(lab_dir):
+    """Unlike the data files, config.json is read as plain UTF-8: a leading BOM is a JSON error."""
+    (lab_dir / "config.json").write_bytes(b"\xef\xbb\xbf" + (ROOT / "config.json").read_bytes())
+    with pytest.raises(ValueError, match=exact("config.json is not valid JSON")) as err:
+        pipeline.load_config()
+    assert type(err.value) is ValueError
+    assert isinstance(err.value.__cause__, json.JSONDecodeError)
+
+
 def test_an_invalid_utf8_config_keeps_the_decode_error_as_its_cause(lab_dir):
     (lab_dir / "config.json").write_bytes(b'{"seed": 1, "note": "\xff"}')
     with pytest.raises(ValueError, match=exact("config.json is not valid UTF-8")) as err:

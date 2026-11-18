@@ -19,11 +19,16 @@ WEEK_FORMAT = re.compile(r"\d{4}-W(0[1-9]|[1-4]\d|5[0-3])", re.ASCII)
 
 def load_config():
     try:
-        return json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+        cfg = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+    except FileNotFoundError as e:
+        raise ValueError("config.json not found") from e
     except UnicodeDecodeError as e:
         raise ValueError("config.json is not valid UTF-8") from e
     except json.JSONDecodeError as e:
         raise ValueError("config.json is not valid JSON") from e
+    if not isinstance(cfg, dict):
+        raise ValueError("config.json must be a JSON object")
+    return cfg
 
 
 # Every key the code reads, in config.json order, with the type it must have.
@@ -96,12 +101,20 @@ def validate_config(cfg):
 
 def _read_rows(name, columns):
     """Rows of a data file as dicts; ValueError names the file when a column is missing."""
-    with open(ROOT / "data" / name, newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        for col in columns:
-            if col not in (reader.fieldnames or []):
-                raise ValueError(f"{name}: missing column {col}")
-        return list(reader)
+    # csv refuses a cell over 131072 characters with its own error; lift that cap for this read so a long
+    # cell reaches the units and price checks, then put it back.
+    old_limit = csv.field_size_limit(2**31 - 1)
+    try:
+        with open(ROOT / "data" / name, newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for col in columns:
+                if col not in (reader.fieldnames or []):
+                    raise ValueError(f"{name}: missing column {col}")
+            return list(reader)
+    except FileNotFoundError as e:
+        raise ValueError(f"{name}: file not found") from e
+    finally:
+        csv.field_size_limit(old_limit)
 
 
 def load_series():
