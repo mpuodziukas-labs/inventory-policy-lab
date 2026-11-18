@@ -1,0 +1,15 @@
+{
+  "seed": 20261117,
+  "service_target": 0.95,
+  "service_levels": [0.90, 0.95, 0.975, 0.99],
+  "lead_time_weeks": {"values": [1, 2, 3], "probs": [0.125, 0.75, 0.125]},
+  "review_period_weeks": 1,
+  "ordering_cost_per_order": 50.0,
+  "holding_rate_per_year": 0.25,
+  "ma_window": 4,
+  "ses_alpha": 0.3,
+  "min_train_weeks": 26,
+  "sim_weeks": 5200,
+  "sim_warmup_weeks": 52,
+  "tolerance": 0.03
+}

@@ -1,0 +1,230 @@
+"""Turn pipeline results into the README block, static report and recommendation."""
+from html import escape
+
+
+def pct(x, nd=1):
+    return f"{x * 100:.{nd}f}%"
+
+
+def _forecast_table(res):
+    s = res["summary"]
+    cfg = res["config"]
+    rows = [
+        ("Naive (last week)", s["wape"]["naive"]),
+        (f"Moving average ({cfg['ma_window']} weeks)", s["wape"]["ma"]),
+        (f"Simple exponential smoothing (alpha {cfg['ses_alpha']})", s["wape"]["ses"]),
+    ]
+    out = ["| Method | WAPE, all 40 SKUs |", "|---|---|"]
+    out += [f"| {name} | {pct(v)} |" for name, v in rows]
+    return out
+
+
+def _sensitivity_table(res):
+    out = ["| Target service level | z | Safety stock (units) | Safety stock holding cost per year (GBP) | Total holding cost per year (GBP) |",
+           "|---|---|---|---|---|"]
+    for r in res["sensitivity"]:
+        out.append(
+            f"| {pct(r['service_level'])} | {r['z']:.3f} | {r['safety_stock_units']:,.0f} "
+            f"| {r['safety_stock_holding_cost']:,.0f} | {r['total_holding_cost']:,.0f} |"
+        )
+    return out
+
+
+def render_readme_block(res):
+    s = res["summary"]
+    cfg = res["config"]
+    test_weeks = s["weeks"] - cfg["min_train_weeks"]
+    lines = [
+        f"Forecast backtest: one-step-ahead rolling origin, {cfg['min_train_weeks']} weeks minimum training, "
+        f"{test_weeks} test weeks per SKU.",
+        "",
+        *_forecast_table(res),
+        "",
+        f"Simple exponential smoothing beats the naive forecast on WAPE for {s['ses_beats_naive']} of {s['sku_count']} SKUs.",
+        "",
+        f"Policy check by simulation ({cfg['sim_weeks']} weeks per SKU, seed {cfg['seed']}), "
+        f"target cycle service level {pct(s['target'], 0)}, tolerance {s['tolerance'] * 100:.0f} points:",
+        "",
+        "| Measure | Value |",
+        "|---|---|",
+        f"| Target cycle service level | {pct(s['target'])} |",
+        f"| Mean achieved cycle service level | {pct(s['mean_service_level'])} |",
+        f"| Mean achieved fill rate | {pct(s['mean_fill_rate'])} |",
+        f"| SKUs meeting target | {s['meeting_target']} of {s['sku_count']} |",
+        "",
+        "Service level sensitivity (all 40 SKUs, assumptions in `config.json`):",
+        "",
+        *_sensitivity_table(res),
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _misses(res):
+    return [r for r in res["skus"] if not r["meets_target"]]
+
+
+def render_recommendation(res):
+    s = res["summary"]
+    miss = _misses(res)
+    sens = {round(r["service_level"], 4): r for r in res["sensitivity"]}
+    base, hi = sens[0.95], sens[0.975]
+    lines = [
+        "# Recommendation",
+        "",
+        f"Keep the {pct(s['target'], 0)} cycle service level target and the policy formulas for most SKUs: "
+        f"{s['meeting_target']} of {s['sku_count']} SKUs meet target within {s['tolerance'] * 100:.0f} points "
+        f"in simulation, with a mean achieved cycle service level of {pct(s['mean_service_level'])} "
+        f"and a mean fill rate of {pct(s['mean_fill_rate'])}.",
+        "",
+        "## SKUs that miss target",
+        "",
+    ]
+    if miss:
+        lines += [
+            f"{len(miss)} SKUs fall short. In every case the safety stock formula is working from a "
+            "normal-demand assumption that these SKUs break.",
+            "",
+            "| SKU | Description | Achieved service level | Demand share of variance | Lead-time share of variance | Demand skew | Main cause |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for r in miss:
+            lines.append(
+                f"| {r['code']} | {r['description']} | {pct(r['cycle_service_level'])} | {pct(r['share_demand'], 0)} "
+                f"| {pct(r['share_lead'], 0)} | {r['skew']:.1f} | {r['cause']} |"
+            )
+        lines += ["", "For these SKUs, set safety stock from the observed distribution of lead-time demand "
+                  "(an empirical quantile) rather than from z times sigma, then re-run the simulation."]
+    else:
+        lines.append("None.")
+    lines += [
+        "",
+        "## Cost of a higher target",
+        "",
+        f"Moving all 40 SKUs from {pct(base['service_level'])} to {pct(hi['service_level'])} raises safety stock from "
+        f"{base['safety_stock_units']:,.0f} to {hi['safety_stock_units']:,.0f} units and total annual holding cost from "
+        f"GBP {base['total_holding_cost']:,.0f} to GBP {hi['total_holding_cost']:,.0f} "
+        "(holding cost is an assumed rate on median selling price).",
+        "",
+        "## Forecasting",
+        "",
+        f"Simple exponential smoothing has the lowest overall WAPE ({pct(s['wape']['ses'])}) against "
+        f"{pct(s['wape']['ma'])} for the moving average and {pct(s['wape']['naive'])} for the naive forecast, "
+        f"and beats naive on {s['ses_beats_naive']} of {s['sku_count']} SKUs. "
+        "Use it for the weekly demand outlook.",
+        "",
+        "All numbers are regenerated by `make regen` from `config.json` and the vendored data.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _dot_chart(res):
+    s = res["summary"]
+    skus = res["skus"]
+    w, h, left, top, bottom = 720, 300, 46, 16, 70
+    lo, hi = 0.6, 1.0
+    plot_h = h - top - bottom
+    step = (w - left - 10) / len(skus)
+
+    def y(v):
+        return top + (hi - v) / (hi - lo) * plot_h
+
+    parts = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="Achieved cycle service level per SKU against target">']
+    for tick in (0.6, 0.7, 0.8, 0.9, 1.0):
+        parts.append(f'<line x1="{left}" x2="{w - 10}" y1="{y(tick):.1f}" y2="{y(tick):.1f}" class="grid"/>')
+        parts.append(f'<text x="{left - 6}" y="{y(tick) + 4:.1f}" text-anchor="end" class="tick">{tick * 100:.0f}%</text>')
+    parts.append(f'<line x1="{left}" x2="{w - 10}" y1="{y(s["target"]):.1f}" y2="{y(s["target"]):.1f}" class="target"/>')
+    parts.append(f'<text x="{w - 12}" y="{y(s["target"]) - 5:.1f}" text-anchor="end" class="tick">target {pct(s["target"], 0)}</text>')
+    for i, r in enumerate(skus):
+        x = left + step * (i + 0.5)
+        cls = "ok" if r["meets_target"] else "miss"
+        parts.append(f'<circle cx="{x:.1f}" cy="{y(r["cycle_service_level"]):.1f}" r="4" class="{cls}"><title>{escape(r["code"])}: {pct(r["cycle_service_level"])}</title></circle>')
+        parts.append(f'<text x="{x:.1f}" y="{h - bottom + 10}" transform="rotate(90 {x:.1f} {h - bottom + 10})" class="tick">{escape(r["code"])}</text>')
+    parts.append("</svg>")
+    return "\n".join(parts)
+
+
+def _cost_chart(res):
+    rows = res["sensitivity"]
+    w, h, left, bottom, top = 720, 220, 70, 36, 14
+    top_val = max(r["total_holding_cost"] for r in rows)
+    plot_h = h - top - bottom
+    bw = 90
+    gap = (w - left - 10 - bw * len(rows)) / (len(rows) + 1)
+    parts = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="Annual holding cost by service level">']
+    parts.append(f'<line x1="{left}" x2="{left}" y1="{top}" y2="{h - bottom}" class="grid"/>')
+    parts.append(f'<text x="{left - 6}" y="{top + 8}" text-anchor="end" class="tick">{top_val:,.0f}</text>')
+    parts.append(f'<text x="{left - 6}" y="{h - bottom + 4}" text-anchor="end" class="tick">0</text>')
+    for i, r in enumerate(rows):
+        x = left + gap * (i + 1) + bw * i
+        ss_h = r["safety_stock_holding_cost"] / top_val * plot_h
+        cy_h = (r["total_holding_cost"] - r["safety_stock_holding_cost"]) / top_val * plot_h
+        base = h - bottom
+        parts.append(f'<rect x="{x:.1f}" y="{base - cy_h:.1f}" width="{bw}" height="{cy_h:.1f}" class="cycle"><title>Cycle stock</title></rect>')
+        parts.append(f'<rect x="{x:.1f}" y="{base - cy_h - ss_h:.1f}" width="{bw}" height="{ss_h:.1f}" class="safety"><title>Safety stock</title></rect>')
+        parts.append(f'<text x="{x + bw / 2:.1f}" y="{base + 16}" text-anchor="middle" class="tick">{pct(r["service_level"])}</text>')
+    parts.append("</svg>")
+    return "\n".join(parts)
+
+
+CSS = """
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mute:#6b6b66;--line:#d9d9d2;--ok:#1f6f5c;--miss:#b4442a;--a:#2b5d8a;--b:#c9a24a}
+@media (prefers-color-scheme:dark){:root{--bg:#161614;--fg:#ecece6;--mute:#9a9a92;--line:#3a3a35;--ok:#4fb89c;--miss:#e0795e;--a:#6fa3d6;--b:#d8b765}}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;margin:0 auto;padding:24px 16px;max-width:880px}
+h1{font-size:22px}h2{font-size:17px;margin-top:32px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:12px 0}
+th,td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:right}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+svg{width:100%;height:auto}.grid{stroke:var(--line)}.target{stroke:var(--mute);stroke-dasharray:4 3}
+.tick{fill:var(--mute);font-size:10px}.ok{fill:var(--ok)}.miss{fill:var(--miss)}.cycle{fill:var(--a)}.safety{fill:var(--b)}
+.kpi{display:flex;gap:24px;flex-wrap:wrap}.kpi div{min-width:140px}.kpi b{display:block;font-size:24px}
+.scroll{overflow-x:auto}
+"""
+
+
+def render_report(res):
+    s = res["summary"]
+    rows = []
+    for r in res["skus"]:
+        rows.append(
+            f"<tr><td>{escape(r['code'])}</td><td>{escape(r['description'])}</td><td>{r['mean_weekly']:.0f}</td>"
+            f"<td>{r['eoq']:,}</td><td>{r['safety_stock']:.0f}</td><td>{r['reorder_point']:.0f}</td>"
+            f"<td>{pct(r['cycle_service_level'])}</td><td>{pct(r['fill_rate'])}</td>"
+            f"<td>{r['stockout_weeks_per_year']:.1f}</td><td>{r['avg_inventory']:.0f}</td><td>{r['turns']:.1f}</td>"
+            f"<td>{pct(r['wape_naive'], 0)}</td><td>{pct(r['wape_ses'], 0)}</td></tr>"
+        )
+    miss_rows = [
+        f"<tr><td>{escape(r['code'])}</td><td>{escape(r['description'])}</td><td>{pct(r['cycle_service_level'])}</td>"
+        f"<td>{pct(r['share_demand'], 0)}</td><td>{pct(r['share_lead'], 0)}</td><td>{r['skew']:.1f}</td><td>{r['cause']}</td></tr>"
+        for r in _misses(res)
+    ]
+    sens = "\n".join(
+        f"<tr><td>{pct(r['service_level'])}</td><td>{r['z']:.3f}</td><td>{r['safety_stock_units']:,.0f}</td>"
+        f"<td>{r['safety_stock_holding_cost']:,.0f}</td><td>{r['total_holding_cost']:,.0f}</td></tr>"
+        for r in res["sensitivity"]
+    )
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inventory policy report</title><style>{CSS}</style></head><body>
+<h1>Inventory policy report</h1>
+<p>40 SKUs, {s['weeks']} weeks of demand. Every figure is regenerated by <code>make regen</code>.</p>
+<div class="kpi">
+<div><b>{s['meeting_target']} of {s['sku_count']}</b>SKUs meeting {pct(s['target'], 0)} target</div>
+<div><b>{pct(s['mean_service_level'])}</b>mean cycle service level</div>
+<div><b>{pct(s['mean_fill_rate'])}</b>mean fill rate</div>
+<div><b>{pct(s['wape']['ses'])}</b>overall WAPE, exponential smoothing (naive {pct(s['wape']['naive'])})</div>
+</div>
+<h2>Achieved cycle service level by SKU</h2>
+{_dot_chart(res)}
+<h2>Annual holding cost by target service level (GBP)</h2>
+<p>Lower segment is cycle stock, upper segment is safety stock.</p>
+{_cost_chart(res)}
+<div class="scroll"><table><tr><th>Target</th><th>z</th><th>Safety stock units</th><th>Safety stock cost</th><th>Total cost</th></tr>
+{sens}</table></div>
+<h2>SKUs that miss target</h2>
+<div class="scroll"><table><tr><th>SKU</th><th>Description</th><th>Achieved</th><th>Demand variance share</th><th>Lead-time variance share</th><th>Skew</th><th>Main cause</th></tr>
+{"".join(miss_rows) if miss_rows else "<tr><td colspan='7'>None</td></tr>"}</table></div>
+<h2>Policy, KPIs and forecast error per SKU</h2>
+<div class="scroll"><table><tr><th>SKU</th><th>Description</th><th>Weekly demand</th><th>EOQ</th><th>Safety stock</th><th>Reorder point</th><th>Service level</th><th>Fill rate</th><th>Stockout weeks per year</th><th>Average inventory</th><th>Turns</th><th>WAPE naive</th><th>WAPE smoothing</th></tr>
+{"".join(rows)}</table></div>
+</body></html>
+"""
