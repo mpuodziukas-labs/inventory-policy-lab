@@ -15,7 +15,10 @@ WEEKS_PER_YEAR = 52
 
 
 def load_config():
-    return json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+    try:
+        return json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+    except UnicodeDecodeError as e:
+        raise ValueError("config.json is not valid UTF-8") from e
 
 
 # Every key the code reads, in config.json order, with the type it must have.

@@ -23,3 +23,4 @@
 - fix: simulate rejects an infinite reorder point, fractional warm-up and non-finite order quantity; data files and config are validated up front and regen writes nothing when a run fails; CI workflow and guard order pinned
 - fix: config must list service levels 0.95 and 0.975 and keep the target and every level in [0.5, 1)
 - fix: validate every config key, reject padded codes, strict number cells, BOM-safe UTF-8, pin check order
+- fix: invalid UTF-8 in config or README raises a named ValueError; test: pin config order and bounds, encodings, units and price cells, simulate stockout window, ses start, selftest exits and lines

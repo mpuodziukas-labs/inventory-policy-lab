@@ -23,7 +23,10 @@ def csv_text(rows, fields):
 
 def main():
     readme = ROOT / "README.md"
-    text = readme.read_text(encoding="utf-8")
+    try:
+        text = readme.read_text(encoding="utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError("README.md is not valid UTF-8") from e
     if text.count(START) != 1 or text.count(END) != 1 or text.index(START) > text.index(END):
         sys.exit("README markers missing or not exactly one START before one END")
     res = pipeline.run()
