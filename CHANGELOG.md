@@ -29,3 +29,4 @@
 - fix: a one-week demand file raises the empty test window ValueError, not StatisticsError; test: pin 15 surviving week-format and CI mutants, every week 00 to 99 and every one-character edit of a valid week against a regex-free oracle, and list thirteen proved equivalents
 - fix: non-object config, over-long csv cells, missing files and ses alpha outside (0, 1] raise a named ValueError; test: pin 12 more surviving mutants and the short-series error order, and list thirteen proved equivalents
 - test: pin 8 more surviving mutants (other read errors are not renamed, a cell of 300000 characters, the csv limit restored on every path); SPEC lists two proved equivalents and the non-UTF-8 data file rule
+- fix: a SKU with zero demand in every week is named in the pipeline error; test: pin surviving mutant I2924 (tiny and subnormal variance totals) and list three proved equivalents

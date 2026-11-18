@@ -19,3 +19,19 @@ def test_decompose_rejects_bad_inputs_with_the_message_a_reader_sees():
     msg = "lead time, standard deviations and mean demand must be finite and non-negative"
     with pytest.raises(ValueError, match="^" + msg + "$"):
         decompose(2, -1, 50, 0.5)
+
+
+def test_decompose_tiny_demand_total_is_not_treated_as_zero():
+    """Total 1e-7 * (1e-3)^2 = 1e-13: far below 1e-12 but not zero, so the shares are (1, 0)."""
+    assert decompose(1e-7, 1e-3, 0.0, 0.0) == (1.0, 0.0)
+
+
+def test_decompose_tiny_lead_time_total_is_not_treated_as_zero():
+    """Total (1e-3)^2 * (1e-5)^2 = 1e-16 from the lead-time term only, so the shares are (0, 1)."""
+    assert decompose(0.0, 0.0, 1e-3, 1e-5) == (0.0, 1.0)
+
+
+def test_decompose_subnormal_total_is_not_treated_as_zero():
+    """5e-324 is reachable: lead time 5e-324 with sigma_d 1 gives a total of exactly 5e-324."""
+    assert 0.0 < 5e-324 * 1.0**2 == 5e-324
+    assert decompose(5e-324, 1.0, 0.0, 0.0) == (1.0, 0.0)

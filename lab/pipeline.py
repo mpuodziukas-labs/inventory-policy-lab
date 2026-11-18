@@ -224,7 +224,10 @@ def run(safety_stock_fn=safety_stock):
                              "no test weeks (the series is no longer than the training minimum)")
         d, sd = mean(ys), stdev(ys)
         h = cfg["holding_rate_per_year"] * price
-        q = max(1, round(eoq(d * WEEKS_PER_YEAR, cfg["ordering_cost_per_order"], h)))
+        try:
+            q = max(1, round(eoq(d * WEEKS_PER_YEAR, cfg["ordering_cost_per_order"], h)))
+        except ValueError as e:
+            raise ValueError(f"SKU {code} has no demand in any week: {e}") from e
         ss = safety_stock_fn(z, protect, sd, d, lead_sd)
         rop = reorder_point(d, protect, ss)
         sim = simulate(ys, rop, q, lv, lp, cfg["seed"] + i, cfg["sim_weeks"], cfg["sim_warmup_weeks"])

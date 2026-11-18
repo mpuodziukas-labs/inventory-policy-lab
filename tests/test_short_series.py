@@ -89,7 +89,16 @@ def test_three_zero_weeks_with_the_default_config_reach_the_eoq_error_not_the_te
     with pytest.raises(ValueError) as err:
         run()
     assert type(err.value) is ValueError
-    assert str(err.value) == "demand, order cost and holding cost must be positive"
+    assert str(err.value) == "SKU A has no demand in any week: demand, order cost and holding cost must be positive"
+    assert str(err.value.__cause__) == "demand, order cost and holding cost must be positive"
+
+
+def test_a_sku_with_zero_demand_in_every_week_is_named_by_the_error(lab):
+    with pytest.raises(ValueError) as err:
+        lab(weeks(30, a=(5,), b=(0,)))()
+    assert type(err.value) is ValueError
+    assert str(err.value) == "SKU B has no demand in any week: demand, order cost and holding cost must be positive"
+    assert type(err.value.__cause__) is ValueError
 
 
 def test_a_second_sku_with_fewer_weeks_is_named_by_the_length_error(lab):
