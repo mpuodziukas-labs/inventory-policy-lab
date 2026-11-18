@@ -105,3 +105,7 @@ def test_regen_recipe_is_exactly_one_plain_command_that_cannot_hide_a_failure():
     assert raw == ["\t$(PY) lab/regen.py"]
     assert not raw[0].lstrip().startswith("-")
     assert "||" not in raw[0] and ";" not in raw[0]
+
+
+def test_ci_checks_the_repository_out_with_checkout_v4():
+    assert "uses: actions/checkout@v4\n" in (ROOT / ".github" / "workflows" / "ci.yml").read_text()

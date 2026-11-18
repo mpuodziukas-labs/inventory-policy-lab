@@ -206,6 +206,9 @@ def run(safety_stock_fn=safety_stock):
     skus = []
     for i, (code, ys) in enumerate(series.items()):
         price, desc = prices[code]
+        if len(ys) < 2:  # stdev needs two points; a one-week series has no test window either
+            raise ValueError(f"SKU {code} has an empty test window: MAE is undefined: "
+                             "no test weeks (the series is no longer than the training minimum)")
         d, sd = mean(ys), stdev(ys)
         h = cfg["holding_rate_per_year"] * price
         q = max(1, round(eoq(d * WEEKS_PER_YEAR, cfg["ordering_cost_per_order"], h)))
