@@ -83,3 +83,51 @@ def test_moving_average_error_uses_the_configured_window(run_with):
         f_, a_ = fc.rolling_origin(series[row["code"]], lambda h: fc.moving_average(h, 8), 26)
         assert row["mae_ma"] == fc.mae(a_, f_)
         assert row["wape_ma"] == fc.wape(a_, f_)
+
+
+def test_ses_error_uses_the_configured_alpha(run_with):
+    res, _ = run_with(ses_alpha=0.9)
+    series = pipeline.load_series()
+    for row in res["skus"][:3]:
+        f_, a_ = fc.rolling_origin(series[row["code"]], lambda h: fc.ses(h, 0.9), 26)
+        assert row["mae_ses"] == fc.mae(a_, f_)
+        assert row["wape_ses"] == fc.wape(a_, f_)
+
+
+def test_eoq_uses_the_configured_ordering_cost(run_with):
+    base, _ = run_with()
+    res, _ = run_with(ordering_cost_per_order=400.0)
+    hold = pipeline.load_config()["holding_rate_per_year"]
+    for row in res["skus"]:
+        expected = max(1, round(eoq(row["mean_weekly"] * pipeline.WEEKS_PER_YEAR, 400.0, hold * row["price"])))
+        assert row["eoq"] == expected
+    assert [r["eoq"] for r in res["skus"]] != [r["eoq"] for r in base["skus"]]
+
+
+def test_simulation_receives_the_configured_weeks_and_warm_up(monkeypatch):
+    seen = []
+
+    def spy(history, rop, q, lv, lp, seed, weeks, warmup):
+        seen.append((weeks, warmup))
+        return _stub_sim(history, rop, q, lv, lp, seed, weeks, warmup)
+
+    cfg = dict(pipeline.load_config(), sim_weeks=777, sim_warmup_weeks=33)
+    monkeypatch.setattr(pipeline, "load_config", lambda: cfg)
+    monkeypatch.setattr(pipeline, "simulate", spy)
+    res = pipeline.run()
+    assert seen == [(777, 33)] * res["summary"]["sku_count"]
+
+
+def test_backtest_starts_after_the_configured_minimum_training_weeks(run_with):
+    res, _ = run_with(min_train_weeks=30)
+    series = pipeline.load_series()
+    for row in res["skus"][:3]:
+        f_, a_ = fc.rolling_origin(series[row["code"]], fc.naive_forecast, 30)
+        assert len(a_) == len(series[row["code"]]) - 30
+        assert row["mae_naive"] == fc.mae(a_, f_)
+
+
+def test_sensitivity_table_lists_the_configured_service_levels(run_with):
+    res, _ = run_with(service_levels=[0.80, 0.925])
+    assert [r["service_level"] for r in res["sensitivity"]] == [0.80, 0.925]
+    assert [r["z"] for r in res["sensitivity"]] == [z_for_service(0.80), z_for_service(0.925)]

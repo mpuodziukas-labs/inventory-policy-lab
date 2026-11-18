@@ -18,3 +18,4 @@
 - test: pin draw fallback, short-history average, lead-time weights, tie and marker handling; drop unused next-week forecast
 - fix: regen rejects reversed or duplicated README markers before writing; pin render, extract, config, message and order-loop behaviour; tests renamed by subject
 - fix: render takes the SKU count from the summary; pin fetch, extract, config, message and Makefile behaviour
+- fix: reject bad simulate, moving-average, backtest and empty-workbook inputs; pin config, message, ranking and fetch-default behaviour

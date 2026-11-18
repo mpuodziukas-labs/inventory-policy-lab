@@ -22,6 +22,18 @@ def _draw(rng, values, probs):
 def simulate(history, reorder_point, order_qty, lead_values, lead_probs, seed, weeks, warmup):
     if weeks <= 0:
         raise ValueError("weeks must be positive")
+    if not history:
+        raise ValueError("history must not be empty")
+    if order_qty <= 0:
+        raise ValueError("order quantity must be positive")
+    if any(not isinstance(v, int) or v < 1 for v in lead_values):
+        raise ValueError("lead values must be whole weeks of at least 1")
+    if len(lead_values) != len(lead_probs):
+        raise ValueError("lead values and probabilities must have the same length")
+    if any(p < 0 for p in lead_probs):
+        raise ValueError("lead probabilities cannot be negative")
+    if not abs(sum(lead_probs) - 1) <= 1e-9:
+        raise ValueError("lead probabilities must sum to 1")
     rng = random.Random(seed)
     n = len(history)
     total = warmup + weeks

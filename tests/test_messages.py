@@ -58,3 +58,16 @@ def test_pipeline_error_for_a_sku_without_test_demand_carries_the_reason(monkeyp
     monkeypatch.setattr(pipeline, "simulate", stub)
     with pytest.raises(ValueError, match=r"SKU 10000 has no demand in its test window: WAPE is undefined"):
         pipeline.run()
+
+
+@pytest.mark.parametrize("fn", [fc.mae, fc.wape])
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_non_finite_input_message_says_actuals_and_forecasts_must_be_finite_numbers(fn, bad):
+    name = fn.__name__.upper()
+    with pytest.raises(ValueError, match=rf"{name} is undefined: actuals and forecasts must be finite numbers"):
+        fn([1, bad], [1, 1])
+
+
+def test_wape_negative_actual_message_says_demand_actuals_cannot_be_negative():
+    with pytest.raises(ValueError, match=r"WAPE is undefined: demand actuals cannot be negative"):
+        fc.wape([-1, 3], [1, 1])

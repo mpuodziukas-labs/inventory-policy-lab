@@ -3,6 +3,7 @@ runs with no completed cycle, minimum order size, selftest control, descriptions
 import csv
 import importlib.util
 import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from lab import forecast as fc  # noqa: E402
 from lab import pipeline, selftest  # noqa: E402
 from policy.formulas import reorder_point, safety_stock, z_for_service  # noqa: E402
 from policy.simulate import simulate  # noqa: E402
@@ -89,3 +91,74 @@ def test_sku_description_is_the_most_common_one(tmp_path, monkeypatch):
     m.main(["x", "ignored.xlsx", str(tmp_path)])
     with open(tmp_path / "sku_price.csv", newline="") as f:
         assert list(csv.DictReader(f))[0]["description"] == "common name"
+
+
+def run_child(code, timeout=10):
+    """Run code in a child interpreter so a regression into an endless loop fails fast."""
+    try:
+        return subprocess.run([sys.executable, "-B", "-c", code], cwd=ROOT, capture_output=True,
+                              text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        pytest.fail(f"still running after {timeout}s: {code!r}")
+
+
+@pytest.mark.parametrize("qty", [0, -3])
+def test_simulate_rejects_a_non_positive_order_quantity_instead_of_looping(qty):
+    p = run_child(f"from policy.simulate import simulate\nsimulate([5, 6, 7], 10, {qty}, [1, 2], [0.5, 0.5], 1, 10, 2)\n")
+    assert p.returncode != 0
+    assert "ValueError: order quantity must be positive" in p.stderr
+
+
+@pytest.mark.parametrize("leads", [[-1], [0], [1, 0], [1.5], [2.0], [float("nan")], [float("inf")]])
+def test_simulate_rejects_lead_values_that_are_not_whole_weeks_of_at_least_one(leads):
+    with pytest.raises(ValueError, match=r"lead values must be whole weeks of at least 1"):
+        simulate([5, 6, 7], 10, 5, leads, [1.0 / len(leads)] * len(leads), 1, 20, 2)
+
+
+def test_simulate_rejects_an_empty_history():
+    with pytest.raises(ValueError, match=r"history must not be empty"):
+        simulate([], 10, 5, [1], [1.0], 1, 20, 2)
+
+
+@pytest.mark.parametrize("probs", [[0.5, 0.4], [0.6, 0.6], [0.9, 0.9], [float("nan"), 1.0]])
+def test_simulate_rejects_lead_probabilities_that_do_not_sum_to_one(probs):
+    with pytest.raises(ValueError, match=r"lead probabilities must sum to 1"):
+        simulate([5, 6, 7], 10, 5, [1, 2], probs, 1, 20, 2)
+
+
+def test_simulate_rejects_a_negative_lead_probability_even_when_the_sum_is_one():
+    with pytest.raises(ValueError, match=r"lead probabilities cannot be negative"):
+        simulate([5, 6, 7], 10, 5, [1, 2], [-0.25, 1.25], 1, 20, 2)
+
+
+@pytest.mark.parametrize("values, probs", [([1, 2], [1.0]), ([1], [0.5, 0.5])])
+def test_simulate_rejects_lead_values_and_probabilities_of_different_length(values, probs):
+    with pytest.raises(ValueError, match=r"lead values and probabilities must have the same length"):
+        simulate([5, 6, 7], 10, 5, values, probs, 1, 20, 2)
+
+
+def test_simulate_rejects_empty_lead_lists_because_no_probability_sums_to_one():
+    with pytest.raises(ValueError, match=r"lead probabilities must sum to 1"):
+        simulate([5, 6, 7], 10, 5, [], [], 1, 20, 2)
+
+
+def test_simulate_accepts_probabilities_that_sum_to_one_within_the_tolerance():
+    simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5 + 5e-10], 1, 50, 2)
+    with pytest.raises(ValueError, match=r"lead probabilities must sum to 1"):
+        simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5 + 2e-9], 1, 50, 2)
+
+
+@pytest.mark.parametrize("k", [0, -1, -5])
+def test_moving_average_rejects_a_window_below_one(k):
+    with pytest.raises(ValueError, match=r"moving average window must be at least 1"):
+        fc.moving_average([1, 2, 3, 10], k)
+
+
+def test_moving_average_still_accepts_a_window_of_one():
+    assert fc.moving_average([1, 2, 3, 10], 1) == 10
+
+
+@pytest.mark.parametrize("min_train", [0, -1])
+def test_rolling_origin_rejects_a_training_minimum_below_one(min_train):
+    with pytest.raises(ValueError, match=r"min_train must be at least 1"):
+        fc.rolling_origin([1, 2, 3, 4], fc.naive_forecast, min_train)

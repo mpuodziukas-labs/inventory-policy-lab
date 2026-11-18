@@ -99,3 +99,18 @@ def test_a_non_matching_download_exits_non_zero_and_writes_nothing(fetch, tmp_pa
     assert "sha256 mismatch" in str(exc.value.code)
     assert hashlib.sha256(BLOB).hexdigest() in str(exc.value.code)
     assert not (out / "online_retail.zip").exists()
+
+
+def test_without_an_argument_the_archive_goes_to_the_hidden_default_dir(fetch, tmp_path):
+    m, _ = fetch
+    m.SHA256 = hashlib.sha256(BLOB).hexdigest()
+    m.main(["fetch_data.py"])
+    assert (tmp_path / ".tmp" / "online_retail.zip").read_bytes() == BLOB
+
+
+def test_the_out_dir_is_the_first_argument_not_the_last(fetch, tmp_path):
+    m, _ = fetch
+    m.SHA256 = hashlib.sha256(BLOB).hexdigest()
+    m.main(["fetch_data.py", str(tmp_path / "first"), str(tmp_path / "last")])
+    assert (tmp_path / "first" / "online_retail.zip").read_bytes() == BLOB
+    assert not (tmp_path / "last").exists()

@@ -264,3 +264,45 @@ def test_read_rows_maps_columns_by_the_header_row(monkeypatch):
     fake_workbook(monkeypatch, [HEADER, GOOD])
     assert list(m.read_rows("book.xlsx")) == [
         ("536365", "85123A", 6, datetime(2010, 12, 1, 8, 26), 2.55, "WHITE HANGING HEART")]
+
+
+@pytest.mark.parametrize("sheet", [[HEADER], [], [HEADER, GOOD[:4] + (None,) + GOOD[5:], GOOD[:1] + (None,) + GOOD[2:]]])
+def test_a_workbook_without_usable_rows_exits_with_one_message_and_writes_nothing(monkeypatch, tmp_path, sheet):
+    m = load()
+    fake_workbook(monkeypatch, sheet)
+    out = tmp_path / "out"
+    with pytest.raises(SystemExit) as exc:
+        m.main(["x", "book.xlsx", str(out)])
+    assert exc.value.code == "no usable rows in the workbook"
+    assert not out.exists()
+
+
+def test_a_row_with_no_price_is_skipped_not_a_crash():
+    m = load()
+    dt = datetime(2011, 1, 4, 10)
+    assert m.aggregate([("A1", "10001", 2, dt, None), ("A2", "10002", 3, dt, 1.0)]) == {("2011-W01", "10002"): 3}
+
+
+def test_a_tied_ranking_is_cut_by_stock_code(tmp_path, monkeypatch):
+    m = load()
+    monkeypatch.setattr(m, "TOP_SKUS", 1)
+    rows = [("A1", "10002", 4, W1, 1.0, "later code"), ("A2", "10001", 4, W1, 1.0, "earlier code")]
+    run_main(m, monkeypatch, rows, ["x", "ignored.xlsx", str(tmp_path)])
+    assert [r["stock_code"] for r in read(tmp_path / "sku_price.csv")] == ["10001"]
+
+
+def test_a_selected_sku_with_no_sales_in_a_week_gets_zero_for_that_week(tmp_path, monkeypatch):
+    m = load()
+    rows = [("A1", "10001", 5, W1, 1.0, "gap week"), ("A2", "10002", 7, W1, 1.0, "full"), ("A3", "10002", 8, W2, 1.0, "full")]
+    run_main(m, monkeypatch, rows, ["x", "ignored.xlsx", str(tmp_path)])
+    demand = {(r["iso_week"], r["stock_code"]): r["units"] for r in read(tmp_path / "weekly_demand.csv")}
+    assert demand[("2011-W02", "10001")] == "0"
+    assert demand[("2011-W01", "10001")] == "5"
+
+
+def test_sku_price_file_is_byte_exact_with_unix_line_endings(tmp_path, monkeypatch):
+    m = load()
+    rows = [("A1", "10001", 1, W1, 1.0, "item one"), ("A2", "10002", 1, W1, 2.5, "item two")]
+    run_main(m, monkeypatch, rows, ["x", "ignored.xlsx", str(tmp_path)])
+    assert (tmp_path / "sku_price.csv").read_bytes() == (
+        b"stock_code,median_unit_price,description\n10001,1.00,item one\n10002,2.50,item two\n")

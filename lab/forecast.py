@@ -7,6 +7,8 @@ def naive_forecast(history):
 
 
 def moving_average(history, k):
+    if k < 1:
+        raise ValueError("moving average window must be at least 1")
     window = history[-k:]
     return sum(window) / len(window)
 
@@ -21,6 +23,8 @@ def ses(history, alpha):
 def rolling_origin(series, method, min_train):
     """One-step-ahead forecasts for every week from min_train on; the forecast
     for week t sees only weeks before t. Returns (forecasts, actuals)."""
+    if min_train < 1:
+        raise ValueError("min_train must be at least 1")
     forecasts, actuals = [], []
     for t in range(min_train, len(series)):
         forecasts.append(method(series[:t]))

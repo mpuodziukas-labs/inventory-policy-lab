@@ -70,7 +70,7 @@ def read_rows(xlsx_path):
     wb = load_workbook(xlsx_path, read_only=True, data_only=True)
     ws = wb.active
     it = ws.iter_rows(values_only=True)
-    header = next(it)
+    header = next(it, ())
     idx = {name: i for i, name in enumerate(header)}
     for r in it:
         if r[idx["StockCode"]] is None or r[idx["InvoiceDate"]] is None:
@@ -95,6 +95,8 @@ def main(argv):
             prices[str(code).strip()].append(float(price))
             if desc:
                 descs[str(code).strip()][str(desc).strip()] += 1
+    if first is None:
+        sys.exit("no usable rows in the workbook")
     weeks = full_weeks(first, last)
     keep = set(weeks)
     net = {k: v for k, v in aggregate(rows).items() if k[0] in keep}
