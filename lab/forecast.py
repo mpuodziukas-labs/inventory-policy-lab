@@ -2,18 +2,26 @@
 import math
 
 
+def _require_series(history):
+    if len(history) == 0:
+        raise ValueError("series must not be empty")
+
+
 def naive_forecast(history):
+    _require_series(history)
     return history[-1]
 
 
 def moving_average(history, k):
     if k < 1:
         raise ValueError("moving average window must be at least 1")
+    _require_series(history)
     window = history[-k:]
     return sum(window) / len(window)
 
 
 def ses(history, alpha):
+    _require_series(history)
     level = history[0]
     for y in history[1:]:
         level = alpha * y + (1 - alpha) * level

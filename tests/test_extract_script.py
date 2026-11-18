@@ -277,6 +277,28 @@ def test_a_workbook_without_usable_rows_exits_with_one_message_and_writes_nothin
     assert not out.exists()
 
 
+def test_data_spanning_less_than_one_full_week_exits_with_one_message_and_writes_nothing(tmp_path, monkeypatch):
+    m = load()
+    rows = [("A1", "10001", 2, datetime(2011, 1, 4, 10), 1.0, "item"),
+            ("A2", "10001", 3, datetime(2011, 1, 6, 10), 1.0, "item")]
+    monkeypatch.setattr(m, "read_rows", lambda path: iter(rows))
+    out = tmp_path / "out"
+    with pytest.raises(SystemExit) as exc:
+        m.main(["x", "ignored.xlsx", str(out)])
+    assert exc.value.code == "the data spans less than one full week"
+    assert not out.exists()
+
+
+@pytest.mark.parametrize("descs", [[None], [""], [None, ""]])
+def test_a_ranked_sku_without_any_description_gets_an_empty_one(tmp_path, monkeypatch, descs):
+    m = load()
+    rows = [(f"A{i}", "10001", 2, W1, 1.0, d) for i, d in enumerate(descs)]
+    run_main(m, monkeypatch, rows, ["x", "ignored.xlsx", str(tmp_path)])
+    assert read(tmp_path / "sku_price.csv") == [
+        {"stock_code": "10001", "median_unit_price": "1.00", "description": ""}]
+    assert {r["stock_code"] for r in read(tmp_path / "weekly_demand.csv")} == {"10001"}
+
+
 def test_a_row_with_no_price_is_skipped_not_a_crash():
     m = load()
     dt = datetime(2011, 1, 4, 10)

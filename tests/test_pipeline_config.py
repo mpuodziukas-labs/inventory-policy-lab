@@ -118,6 +118,26 @@ def test_simulation_receives_the_configured_weeks_and_warm_up(monkeypatch):
     assert seen == [(777, 33)] * res["summary"]["sku_count"]
 
 
+def test_summary_weeks_is_the_common_series_length(run_with):
+    res, _ = run_with()
+    lengths = {len(ys) for ys in pipeline.load_series().values()}
+    assert len(lengths) == 1
+    assert res["summary"]["weeks"] == lengths.pop()
+
+
+def test_ragged_series_are_rejected_naming_the_sku_and_both_lengths(monkeypatch):
+    series = pipeline.load_series()
+    first, last = list(series)[0], list(series)[-1]
+    series[last] = series[last][:-1]
+    n = len(series[first])
+    monkeypatch.setattr(pipeline, "load_series", lambda: series)
+    monkeypatch.setattr(pipeline, "simulate", _stub_sim)
+    with pytest.raises(ValueError) as err:
+        pipeline.run()
+    msg = str(err.value)
+    assert last in msg and str(n - 1) in msg and str(n) in msg
+
+
 def test_backtest_starts_after_the_configured_minimum_training_weeks(run_with):
     res, _ = run_with(min_train_weeks=30)
     series = pipeline.load_series()

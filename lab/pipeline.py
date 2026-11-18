@@ -44,6 +44,12 @@ def skewness(xs):
 def run(safety_stock_fn=safety_stock):
     cfg = load_config()
     series, prices = load_series(), load_prices()
+    first_code = next(iter(series))
+    weeks = len(series[first_code])
+    for code, ys in series.items():
+        if len(ys) != weeks:
+            raise ValueError(
+                f"SKU {code} has {len(ys)} weeks but SKU {first_code} has {weeks}; every SKU needs the same number of weeks")
     lv, lp = cfg["lead_time_weeks"]["values"], cfg["lead_time_weeks"]["probs"]
     lead_mean = sum(v * p for v, p in zip(lv, lp))
     lead_sd = math.sqrt(sum(p * (v - lead_mean) ** 2 for v, p in zip(lv, lp)))
@@ -104,7 +110,7 @@ def run(safety_stock_fn=safety_stock):
     summary = {
         "sku_count": len(skus),
         "meeting_target": sum(1 for r in skus if r["meets_target"]),
-        "target": target, "tolerance": tol, "weeks": len(next(iter(series.values()))),
+        "target": target, "tolerance": tol, "weeks": weeks,
         "mean_service_level": mean(r["cycle_service_level"] for r in skus),
         "mean_fill_rate": mean(r["fill_rate"] for r in skus),
         "lead_mean": lead_mean, "lead_sd": lead_sd, "protect": protect,

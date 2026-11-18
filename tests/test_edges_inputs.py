@@ -162,3 +162,62 @@ def test_moving_average_still_accepts_a_window_of_one():
 def test_rolling_origin_rejects_a_training_minimum_below_one(min_train):
     with pytest.raises(ValueError, match=r"min_train must be at least 1"):
         fc.rolling_origin([1, 2, 3, 4], fc.naive_forecast, min_train)
+
+
+def test_rolling_origin_accepts_a_training_minimum_of_one():
+    forecasts, actuals = fc.rolling_origin([1, 2, 3], fc.naive_forecast, 1)
+    assert forecasts == [1, 2]
+    assert actuals == [2, 3]
+
+
+def test_simulate_accepts_a_zero_probability_lead_value_and_never_uses_it():
+    only_two = simulate([5, 6, 7], 10, 20, [2], [1.0], 1, 200, 10)
+    with_zero = simulate([5, 6, 7], 10, 20, [1, 2], [0.0, 1.0], 1, 200, 10)
+    assert only_two["orders"] > 0
+    assert with_zero == only_two
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf"), -1, -0.5])
+def test_simulate_rejects_history_values_that_are_not_finite_or_are_negative(bad):
+    with pytest.raises(ValueError, match=r"history values must be finite and not negative"):
+        simulate([5, bad, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 20, 2)
+
+
+def test_simulate_accepts_zero_demand_weeks_in_the_history():
+    simulate([0, 6, 0, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 50, 2)
+
+
+def test_simulate_rejects_a_negative_warm_up():
+    with pytest.raises(ValueError, match=r"warmup must not be negative"):
+        simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 20, -1)
+
+
+def test_simulate_accepts_a_warm_up_of_zero():
+    simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, 50, 0)
+
+
+@pytest.mark.parametrize("weeks", [20.0, 20.5, True])
+def test_simulate_rejects_a_window_that_is_not_a_whole_number(weeks):
+    with pytest.raises(ValueError, match=r"weeks must be a whole number"):
+        simulate([5, 6, 7], 10, 5, [1, 2], [0.5, 0.5], 1, weeks, 2)
+
+
+def test_simulate_rejects_a_boolean_lead_value():
+    with pytest.raises(ValueError, match=r"lead values must be whole weeks of at least 1"):
+        simulate([5, 6, 7], 10, 5, [True], [1.0], 1, 20, 2)
+
+
+@pytest.mark.parametrize("name, call", [
+    ("naive_forecast", lambda: fc.naive_forecast([])),
+    ("moving_average", lambda: fc.moving_average([], 4)),
+    ("ses", lambda: fc.ses([], 0.3)),
+])
+def test_forecast_methods_reject_an_empty_series_with_one_message(name, call):
+    with pytest.raises(ValueError, match=r"series must not be empty"):
+        call()
+
+
+def test_forecast_methods_still_accept_a_series_of_one_week():
+    assert fc.naive_forecast([4]) == 4
+    assert fc.moving_average([4], 4) == 4
+    assert fc.ses([4], 0.3) == 4

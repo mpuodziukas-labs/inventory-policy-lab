@@ -6,6 +6,7 @@ size Q are placed while inventory position (on hand + on order) is at or below
 s. An order placed at the end of week t arrives at the end of week t + L, so
 its lead-time window is weeks t+1 .. t+L.
 """
+import math
 import random
 
 
@@ -20,13 +21,19 @@ def _draw(rng, values, probs):
 
 
 def simulate(history, reorder_point, order_qty, lead_values, lead_probs, seed, weeks, warmup):
+    if type(weeks) is not int:
+        raise ValueError("weeks must be a whole number")
     if weeks <= 0:
         raise ValueError("weeks must be positive")
+    if warmup < 0:
+        raise ValueError("warmup must not be negative")
     if not history:
         raise ValueError("history must not be empty")
+    if any(not math.isfinite(v) or v < 0 for v in history):
+        raise ValueError("history values must be finite and not negative")
     if order_qty <= 0:
         raise ValueError("order quantity must be positive")
-    if any(not isinstance(v, int) or v < 1 for v in lead_values):
+    if any(type(v) is not int or v < 1 for v in lead_values):
         raise ValueError("lead values must be whole weeks of at least 1")
     if len(lead_values) != len(lead_probs):
         raise ValueError("lead values and probabilities must have the same length")

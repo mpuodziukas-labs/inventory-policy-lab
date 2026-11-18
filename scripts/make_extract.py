@@ -98,6 +98,8 @@ def main(argv):
     if first is None:
         sys.exit("no usable rows in the workbook")
     weeks = full_weeks(first, last)
+    if not weeks:
+        sys.exit("the data spans less than one full week")
     keep = set(weeks)
     net = {k: v for k, v in aggregate(rows).items() if k[0] in keep}
     nonzero = Counter()
@@ -119,7 +121,7 @@ def main(argv):
         w = csv.writer(f, lineterminator="\n")
         w.writerow(["stock_code", "median_unit_price", "description"])
         for code in skus:
-            desc = descs[code].most_common(1)[0][0].replace(",", " ")
+            desc = descs[code].most_common(1)[0][0].replace(",", " ") if descs[code] else ""
             w.writerow([code, f"{median(prices[code]):.2f}", desc])
     for name in ("weekly_demand.csv", "sku_price.csv"):
         print(name, hashlib.sha256((out / name).read_bytes()).hexdigest())
