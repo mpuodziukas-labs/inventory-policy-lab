@@ -11,3 +11,11 @@ def test_variance_decomposition_hand_worked():
     assert abs(sd + sl - 1.0) < 1e-12
     assert dominant_cause(sd, sl) == "lead-time variability"
     assert dominant_cause(0.7, 0.3) == "demand variability"
+
+
+def test_decompose_rejects_bad_inputs_with_the_message_a_reader_sees():
+    import pytest
+
+    msg = "lead time, standard deviations and mean demand must be finite and non-negative"
+    with pytest.raises(ValueError, match="^" + msg + "$"):
+        decompose(2, -1, 50, 0.5)

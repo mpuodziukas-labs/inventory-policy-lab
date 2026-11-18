@@ -15,28 +15,80 @@ WEEKS_PER_YEAR = 52
 
 
 def load_config():
-    return json.loads((ROOT / "config.json").read_text())
+    return json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+
+
+# Every key the code reads, in config.json order, with the type it must have.
+CONFIG_KEYS = (
+    ("seed", "whole"), ("service_target", "number"), ("service_levels", "numbers"),
+    ("lead_time_weeks", "lead"), ("review_period_weeks", "whole"), ("ordering_cost_per_order", "number"),
+    ("holding_rate_per_year", "number"), ("ma_window", "whole"), ("ses_alpha", "number"),
+    ("min_train_weeks", "whole"), ("sim_weeks", "whole"), ("sim_warmup_weeks", "whole"),
+    ("tolerance", "number"),
+)
+
+
+def _is_number(v):
+    return type(v) in (int, float)
+
+
+def _check_config_types(cfg):
+    for key, _ in CONFIG_KEYS:
+        if key not in cfg:
+            raise ValueError(f"config is missing {key}")
+    for key, kind in CONFIG_KEYS:
+        v = cfg[key]
+        if kind == "number" and not _is_number(v):
+            raise ValueError(f"{key} must be a number")
+        if kind == "whole" and type(v) is not int:
+            raise ValueError(f"{key} must be a whole number")
+        if kind == "numbers" and not (isinstance(v, list) and all(_is_number(x) for x in v)):
+            raise ValueError(f"{key} must be a list of numbers")
+        if kind == "lead":
+            if not isinstance(v, dict):
+                raise ValueError("lead_time_weeks must be an object with values and probs")
+            for sub in ("values", "probs"):
+                if sub not in v:
+                    raise ValueError(f"config is missing lead_time_weeks.{sub}")
+            if not (isinstance(v["values"], list) and all(type(x) is int for x in v["values"])):
+                raise ValueError("lead_time_weeks.values must be a list of whole numbers")
+            if not (isinstance(v["probs"], list) and all(_is_number(x) for x in v["probs"])):
+                raise ValueError("lead_time_weeks.probs must be a list of numbers")
 
 
 def validate_config(cfg):
+    _check_config_types(cfg)
     if cfg["service_target"] not in cfg["service_levels"]:
         raise ValueError(f"service_levels must include the service target {cfg['service_target']}")
     if 0.95 not in cfg["service_levels"] or 0.975 not in cfg["service_levels"]:
         raise ValueError("service_levels must include 0.95 and 0.975, the two levels the report compares")
     if not all(0.5 <= v < 1 for v in (cfg["service_target"], *cfg["service_levels"])):
         raise ValueError("service target and service levels must be at least 0.5 and below 1")
+    if len(set(cfg["service_levels"])) != len(cfg["service_levels"]):
+        raise ValueError("service_levels must not repeat a level")
     if not (math.isfinite(cfg["tolerance"]) and cfg["tolerance"] >= 0):
         raise ValueError("tolerance must be finite and not negative")
     if not 0 < cfg["ses_alpha"] <= 1:
         raise ValueError("ses_alpha must be above 0 and at most 1")
-    for key in ("sim_weeks", "sim_warmup_weeks"):
-        if type(cfg[key]) is not int:
-            raise ValueError(f"{key} must be a whole number")
+    for key in ("ordering_cost_per_order", "holding_rate_per_year"):
+        if not (math.isfinite(cfg[key]) and cfg[key] > 0):
+            raise ValueError(f"{key} must be finite and above 0")
+    if cfg["review_period_weeks"] < 1:
+        raise ValueError("review_period_weeks must be a whole number of at least 1")
+    values, probs = cfg["lead_time_weeks"]["values"], cfg["lead_time_weeks"]["probs"]
+    if any(v < 1 for v in values):
+        raise ValueError("lead_time_weeks.values must be whole weeks of at least 1")
+    if len(values) != len(probs):
+        raise ValueError("lead_time_weeks.values and probs must have the same length")
+    if any(p < 0 for p in probs):
+        raise ValueError("lead_time_weeks.probs cannot be negative")
+    if not abs(sum(probs) - 1) <= 1e-9:
+        raise ValueError("lead_time_weeks.probs must sum to 1")
 
 
 def _read_rows(name, columns):
     """Rows of a data file as dicts; ValueError names the file when a column is missing."""
-    with open(ROOT / "data" / name, newline="") as f:
+    with open(ROOT / "data" / name, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for col in columns:
             if col not in (reader.fieldnames or []):
@@ -51,12 +103,19 @@ def load_series():
     series, seen = {}, set()
     for r in rows:
         code, week = r["stock_code"], r["iso_week"]
+        if code is None or week is None:
+            raise ValueError("weekly_demand.csv: a row is missing its stock code or week")
+        if code != code.strip():
+            raise ValueError(f"weekly_demand.csv: stock code has surrounding whitespace: '{code}'")
+        if week != week.strip():
+            raise ValueError(f"weekly_demand.csv: week has surrounding whitespace: '{week}'")
         if (code, week) in seen:
             raise ValueError(f"weekly_demand.csv: duplicate row for SKU {code} in week {week}")
         seen.add((code, week))
+        cell = r["units"]
         try:
-            units = int(r["units"])
-        except (TypeError, ValueError):
+            units = int(cell) if isinstance(cell, str) and cell.isascii() and cell.isdigit() else -1
+        except ValueError:
             units = -1
         if units < 0:
             raise ValueError(
@@ -68,14 +127,21 @@ def load_series():
 def load_prices():
     prices = {}
     for r in _read_rows("sku_price.csv", ("stock_code", "median_unit_price", "description")):
+        code, cell = r["stock_code"], r["median_unit_price"]
+        if code is None:
+            raise ValueError("sku_price.csv: a row is missing its stock code")
+        if code != code.strip():
+            raise ValueError(f"sku_price.csv: stock code has surrounding whitespace: '{code}'")
         try:
-            price = float(r["median_unit_price"])
-        except (TypeError, ValueError):
+            price = float(cell) if isinstance(cell, str) and cell.isascii() and "_" not in cell else math.nan
+        except ValueError:
             price = math.nan
         if not (math.isfinite(price) and price > 0):
             raise ValueError(
-                f"sku_price.csv: median_unit_price for SKU {r['stock_code']} must be a finite number above 0")
-        prices[r["stock_code"]] = (price, r["description"])
+                f"sku_price.csv: median_unit_price for SKU {code} must be a finite number above 0")
+        if r["description"] is None:
+            raise ValueError(f"sku_price.csv: description missing for SKU {code}")
+        prices[code] = (price, r["description"])
     return prices
 
 

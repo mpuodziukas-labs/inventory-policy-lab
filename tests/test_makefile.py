@@ -97,3 +97,11 @@ def test_selftest_target_does_not_swallow_a_failing_exit():
     lines = recipe("selftest")
     assert lines
     assert not any("||" in l or ";" in l or l.startswith("-") for l in lines)
+
+
+def test_regen_recipe_is_exactly_one_plain_command_that_cannot_hide_a_failure():
+    assert recipe("regen") == ["$(PY) lab/regen.py"]
+    raw = [l for l in (ROOT / "Makefile").read_text().splitlines() if "lab/regen.py" in l]
+    assert raw == ["\t$(PY) lab/regen.py"]
+    assert not raw[0].lstrip().startswith("-")
+    assert "||" not in raw[0] and ";" not in raw[0]
