@@ -17,3 +17,4 @@
 - test: pin length-before-finite order in wape and mae, meets_target boundary
 - test: pin draw fallback, short-history average, lead-time weights, tie and marker handling; drop unused next-week forecast
 - fix: regen rejects reversed or duplicated README markers before writing; pin render, extract, config, message and order-loop behaviour; tests renamed by subject
+- fix: render takes the SKU count from the summary; pin fetch, extract, config, message and Makefile behaviour

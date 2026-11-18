@@ -33,6 +33,13 @@ def test_regen_rejects_bad_markers_cleanly_and_writes_nothing(tmp_path, monkeypa
     assert sorted(p.name for p in tmp_path.iterdir()) == ["README.md"]
 
 
+def test_regen_marker_error_says_exactly_one_start_before_one_end(tmp_path, monkeypatch):
+    (tmp_path / "README.md").write_text("top\nbottom\n")
+    monkeypatch.setattr(regen, "ROOT", tmp_path)
+    with pytest.raises(SystemExit, match=r"not exactly one START before one END"):
+        regen.main()
+
+
 def test_regen_replaces_only_the_block_and_keeps_surrounding_text(tmp_path, monkeypatch):
     readme = tmp_path / "README.md"
     readme.write_text(f"top\n{START}\nold\n{END}\nbottom\n")
