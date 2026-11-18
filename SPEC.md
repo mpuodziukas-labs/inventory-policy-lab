@@ -100,3 +100,7 @@ Where the lab differs from a source:
 - Actuals are demand and cannot be negative: `wape` raises ValueError on any negative actual and keeps its separate error for a zero sum. For valid input a sum is never negative, so a test for a sum at or below zero is the same test as the zero-sum one.
 - `decompose` requires lead time, both standard deviations and mean demand to be non-negative, else ValueError. A total of variance parts is then never negative, so the zero check is the only one that can fire.
 - The pipeline error for a SKU without test-window demand keeps the original WAPE error as its cause, so the chain shows why.
+- `wape` checks in this order: length mismatch, non-finite input, negative actual, zero sum. The negative check comes before the zero-sum check, so `wape([-1, 1], [0, 0])` reports the negative actual rather than a zero sum.
+- `wape` raises ValueError when actuals and forecasts differ in length, in either direction, with the same wording as `mae`; the length check runs before the value checks, so a mismatched pair is always reported as a length error.
+- `decompose` requires lead time, both standard deviations and mean demand to be finite and at or above 0, else ValueError. The earlier `min(...) < 0` test let a leading NaN hide a later negative and returned NaN.
+- `wape` and `mae` raise ValueError on any NaN or infinity in actuals or forecasts: a test showed both returned NaN silently. `mae` checks empty, then length, then finiteness.

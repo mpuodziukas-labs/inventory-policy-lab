@@ -13,3 +13,5 @@ RED 4, constant-demand tests before the fix:
 2 failed, 65 passed (skewness, decompose)
 RED 3, edge-decision tests before the fix:
 3 failed, 71 passed in 0.93s
+RED 5, order, length and finite-input tests before the fix:
+7 failed, 75 passed in 0.92s

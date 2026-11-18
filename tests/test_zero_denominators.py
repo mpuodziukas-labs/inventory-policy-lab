@@ -119,3 +119,56 @@ def test_decompose_rejects_negative_inputs():
     for args in ((-1, 1, 50, 0.5), (2, -1, 50, 0.5), (2, 1, -50, 0.5), (2, 1, 50, -0.5)):
         with pytest.raises(ValueError, match="non-negative"):
             decompose(*args)
+
+
+def test_wape_checks_negative_before_zero_sum():
+    with pytest.raises(ValueError, match="negative"):
+        wape([-1, 1], [0, 0])  # sums to zero and holds a negative: the negative error wins
+
+
+def test_wape_rejects_a_length_mismatch_either_way():
+    with pytest.raises(ValueError, match="length"):
+        wape([1, 2, 3], [1, 2])
+    with pytest.raises(ValueError, match="length"):
+        wape([1, 2], [1, 2, 3])
+
+
+def test_wape_checks_length_before_the_value_checks():
+    with pytest.raises(ValueError, match="length"):
+        wape([-1, 1], [0])  # negative actual and short forecasts: length is reported
+    with pytest.raises(ValueError, match="length"):
+        wape([0, 0], [1])  # zero sum and short forecasts: length is reported
+
+
+def test_decompose_rejects_nan_in_every_position():
+    nan = float("nan")
+    for args in ((nan, 1, 50, 0.5), (2, nan, 50, 0.5), (2, 1, nan, 0.5), (2, 1, 50, nan)):
+        with pytest.raises(ValueError, match="finite"):
+            decompose(*args)
+
+
+def test_decompose_rejects_infinity():
+    with pytest.raises(ValueError, match="finite"):
+        decompose(float("inf"), 1, 50, 0.5)
+
+
+def test_decompose_rejects_a_negative_after_a_leading_nan():
+    """min() returns the NaN when it comes first, so a later negative used to slip through."""
+    with pytest.raises(ValueError):
+        decompose(float("nan"), -1, 50, 0.5)
+
+
+NON_FINITE_PAIRS = (([float("nan"), 1], [1, 1]), ([1, 1], [float("nan"), 1]),
+                    ([float("inf"), 1], [1, 1]), ([1, 1], [float("inf"), 1]))
+
+
+def test_wape_rejects_nan_and_infinity_in_either_list():
+    for a, f in NON_FINITE_PAIRS:
+        with pytest.raises(ValueError, match="finite"):
+            wape(a, f)
+
+
+def test_mae_rejects_nan_and_infinity_in_either_list():
+    for a, f in NON_FINITE_PAIRS:
+        with pytest.raises(ValueError, match="finite"):
+            mae(a, f)

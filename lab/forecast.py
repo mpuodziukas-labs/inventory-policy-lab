@@ -1,4 +1,5 @@
 """Forecast methods, rolling-origin backtest and error measures."""
+import math
 
 
 def naive_forecast(history):
@@ -27,16 +28,25 @@ def rolling_origin(series, method, min_train):
     return forecasts, actuals
 
 
+def _require_finite(name, actuals, forecasts):
+    if not all(math.isfinite(v) for v in (*actuals, *forecasts)):
+        raise ValueError(f"{name} is undefined: actuals and forecasts must be finite numbers")
+
+
 def mae(actuals, forecasts):
     if not actuals:
         raise ValueError("MAE is undefined: no test weeks (the series is no longer than the training minimum)")
     if len(actuals) != len(forecasts):
         raise ValueError(f"MAE is undefined: {len(actuals)} actuals but {len(forecasts)} forecasts (length mismatch)")
+    _require_finite("MAE", actuals, forecasts)
     return sum(abs(a - f) for a, f in zip(actuals, forecasts)) / len(actuals)
 
 
 def wape(actuals, forecasts):
     """Sum of absolute errors over sum of actuals (defined when some weeks are zero, undefined when all are)."""
+    if len(actuals) != len(forecasts):
+        raise ValueError(f"WAPE is undefined: {len(actuals)} actuals but {len(forecasts)} forecasts (length mismatch)")
+    _require_finite("WAPE", actuals, forecasts)
     if any(a < 0 for a in actuals):
         raise ValueError("WAPE is undefined: demand actuals cannot be negative")
     if sum(actuals) == 0:
