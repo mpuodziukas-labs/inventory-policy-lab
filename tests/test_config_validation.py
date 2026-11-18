@@ -105,6 +105,16 @@ def test_boundary_values_of_the_config_are_accepted(overrides):
     pipeline.validate_config(dict(pipeline.load_config(), **overrides))
 
 
+def test_levels_that_differ_only_after_the_second_decimal_are_not_repeats():
+    """0.95 and 0.951 are two levels: the repeat check compares the numbers, not rounded copies."""
+    pipeline.validate_config(dict(pipeline.load_config(), service_levels=[0.9, 0.95, 0.975, 0.951]))
+
+
+def test_an_unknown_extra_key_in_the_config_is_accepted():
+    """Decision: keys the code does not read are ignored, not rejected."""
+    pipeline.validate_config(dict(pipeline.load_config(), not_a_real_key="anything"))
+
+
 def test_no_sku_reaches_simulate_with_a_negative_reorder_point_at_the_lowest_allowed_target(stage, monkeypatch):
     stage(service_target=0.5, service_levels=[0.5, 0.95, 0.975])
     seen = []

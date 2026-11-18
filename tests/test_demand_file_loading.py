@@ -23,7 +23,7 @@ def _units(k, n):
 
 
 def _week(i):
-    return f"2011-W{i + 1:02d}"
+    return f"{2011 + i // 52}-W{i % 52 + 1:02d}"
 
 
 @pytest.fixture

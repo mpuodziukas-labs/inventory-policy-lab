@@ -2,6 +2,7 @@
 import csv
 import json
 import math
+import re
 from pathlib import Path
 from statistics import mean, stdev
 
@@ -12,6 +13,8 @@ from policy.simulate import simulate
 
 ROOT = Path(__file__).resolve().parent.parent
 WEEKS_PER_YEAR = 52
+# Weeks are compared as text, so every label must have the same width: year, dash, W, two digits 01 to 53.
+WEEK_FORMAT = re.compile(r"\d{4}-W(0[1-9]|[1-4]\d|5[0-3])", re.ASCII)
 
 
 def load_config():
@@ -114,6 +117,8 @@ def load_series():
             raise ValueError(f"weekly_demand.csv: stock code has surrounding whitespace: '{code}'")
         if week != week.strip():
             raise ValueError(f"weekly_demand.csv: week has surrounding whitespace: '{week}'")
+        if not WEEK_FORMAT.fullmatch(week):
+            raise ValueError(f"weekly_demand.csv: row {n}: iso_week '{week}' is not a week like 2011-W07 (week 01 to 53)")
         if (code, week) in seen:
             raise ValueError(f"weekly_demand.csv: duplicate row for SKU {code} in week {week}")
         seen.add((code, week))

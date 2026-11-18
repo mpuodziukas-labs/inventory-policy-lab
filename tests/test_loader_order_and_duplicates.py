@@ -76,3 +76,41 @@ def test_a_price_with_surrounding_whitespace_is_named(put, cell):
 def test_a_clean_price_loads(put):
     prices(put, [("A", "1.50")])
     assert pipeline.load_prices() == {"A": (1.5, "d")}
+
+
+def test_stock_codes_that_differ_only_in_case_are_two_prices(put):
+    prices(put, [("85123A", "1.00"), ("85123a", "2.00")])
+    assert pipeline.load_prices() == {"85123A": (1.0, "d"), "85123a": (2.0, "d")}
+
+
+def test_a_two_row_sku_in_descending_order_is_rejected_at_row_3(put):
+    demand(put, [("2011-W02", "A", 1), ("2011-W01", "A", 1)])
+    with pytest.raises(ValueError, match=exact(
+            "weekly_demand.csv: row 3: weeks for SKU A must be in ascending order, "
+            "but 2011-W01 follows 2011-W02")):
+        pipeline.load_series()
+
+
+def test_only_the_second_row_of_a_three_row_sku_out_of_order_is_rejected_at_row_3(put):
+    demand(put, [("2011-W02", "A", 1), ("2011-W01", "A", 1), ("2011-W03", "A", 1)])
+    with pytest.raises(ValueError, match=exact(
+            "weekly_demand.csv: row 3: weeks for SKU A must be in ascending order, "
+            "but 2011-W01 follows 2011-W02")):
+        pipeline.load_series()
+
+
+def test_only_the_third_row_of_a_three_row_sku_out_of_order_is_rejected_at_row_4(put):
+    demand(put, [("2011-W02", "A", 1), ("2011-W03", "A", 1), ("2011-W01", "A", 1)])
+    with pytest.raises(ValueError, match=exact(
+            "weekly_demand.csv: row 4: weeks for SKU A must be in ascending order, "
+            "but 2011-W01 follows 2011-W03")):
+        pipeline.load_series()
+
+
+def test_a_difference_only_in_the_last_week_is_a_different_week_list(put):
+    """A: W01 W02 W04, B: W01 W03 W04 share first and last weeks and differ in the middle."""
+    demand(put, [("2011-W01", "A", 1), ("2011-W02", "A", 1), ("2011-W04", "A", 1),
+                 ("2011-W01", "B", 1), ("2011-W03", "B", 1), ("2011-W04", "B", 1)])
+    with pytest.raises(ValueError, match=exact(
+            "weekly_demand.csv: SKU B covers different weeks than SKU A")):
+        pipeline.load_series()
