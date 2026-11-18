@@ -1,0 +1,2 @@
+git diff after the second regen (regen-1.txt, regen-2.txt):
+(no changes)
