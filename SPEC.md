@@ -30,7 +30,7 @@ Counts are from 10 live US-remote Supply Chain / Inventory / Demand Planning Ana
 | Spreadsheets | 10/10 | none | none | GAP |
 | Forecasting / demand planning: moving average and simple exponential smoothing, rolling-origin backtest, MAE and WAPE per SKU and overall, naive baseline | 9/10 | lab/forecast.py | tests/test_forecast.py::test_ses_hand_worked, tests/test_forecast.py::test_moving_average_hand_worked, tests/test_forecast.py::test_rolling_origin_has_no_lookahead, tests/test_forecast.py::test_wape_hand_worked | PROVEN |
 | Stakeholders / cross-functional (docs/recommendation.md is a written output, no test shows it serves a stakeholder) | 9/10 | none | none | GAP |
-| Communication (docs/recommendation.md is a written output, no test shows its clarity) | 9/10 | none | none | GAP |
+| Communication: written output, numbers tested; no live presentation | 9/10 | docs/recommendation.md | tests/test_report.py::test_recommendation_matches_regenerated_numbers | PARTIAL |
 | Logistics / procurement / supplier management (no supplier data in the source) | 7/10 | none | none | GAP |
 | ERP | 6/10 | none | none | GAP |
 | Dashboards / reporting: static report, inline SVG, no external assets | 6/10 | lab/render.py | tests/test_report.py::test_report_is_static_and_self_contained | PROVEN |
@@ -73,7 +73,7 @@ Where the lab differs from a source:
 - The formula follows the King source: lead time and sigma_L are in demand periods (weeks) and the two variability sources are treated as independent. The King worked example is one of the hand-worked tests.
 - The simple exponential smoothing and moving-average definitions are the textbook recursions; the tests work them by hand and no standard is cited for them.
 
-## Decisions (made without asking)
+## Decisions
 
 - Time unit is the ISO week. The first and last ISO weeks of the dataset are partial (data starts Wednesday 2010-12-01 and ends Friday 2011-12-09) and are dropped.
 - Cancellations (invoice numbers starting with C) are netted against sales in the week they occur; weekly demand is floored at zero. Rows with unit price at or below zero (adjustments) and non-product codes (a product code is five digits plus up to two letters) are excluded.

@@ -1,4 +1,4 @@
-"""The SPEC trace table must be honest: PROVEN rows name real tests, GAP rows name none."""
+"""The SPEC trace table must be honest: PROVEN and PARTIAL rows name real tests, GAP rows name none."""
 import re
 from pathlib import Path
 
@@ -13,20 +13,20 @@ def trace_rows():
         if not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) == 5 and cells[-1] in ("PROVEN", "GAP"):
+        if len(cells) == 5 and cells[-1] in ("PROVEN", "PARTIAL", "GAP"):
             rows.append(cells)
     return rows
 
 
 def test_trace_has_both_kinds_of_row():
     statuses = {r[-1] for r in trace_rows()}
-    assert statuses == {"PROVEN", "GAP"}
+    assert statuses == {"PROVEN", "PARTIAL", "GAP"}
 
 
 def test_every_proven_row_names_existing_test_functions():
     checked = 0
     for req, _seen, _file, ids, status in trace_rows():
-        if status != "PROVEN":
+        if status not in ("PROVEN", "PARTIAL"):
             continue
         for tid in [t.strip() for t in ids.split(",")]:
             assert "::" in tid, f"{req}: malformed test id {tid!r}"
@@ -42,3 +42,8 @@ def test_every_gap_row_names_no_test():
     for req, _seen, _file, ids, status in trace_rows():
         if status == "GAP":
             assert ids == "none", f"{req}: GAP row names a test"
+
+
+def test_stakeholders_row_stays_a_gap():
+    row = next(r for r in trace_rows() if r[0].startswith("Stakeholders"))
+    assert row[-1] == "GAP"

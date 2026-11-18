@@ -8,3 +8,4 @@
 - docs: changelog
 - test: receipts for selftest and regen
 - test: trace, report and README drift tests; trace table recounted
+- test: edge tests for simulation, extract, report and regen; spec row statuses
