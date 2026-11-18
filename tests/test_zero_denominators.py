@@ -1,4 +1,5 @@
 """Zero-denominator cases in the error measures, the pipeline and the simulation KPIs."""
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -172,3 +173,44 @@ def test_mae_rejects_nan_and_infinity_in_either_list():
     for a, f in NON_FINITE_PAIRS:
         with pytest.raises(ValueError, match="finite"):
             mae(a, f)
+
+
+def test_wape_checks_length_before_the_finite_check():
+    with pytest.raises(ValueError, match="length"):
+        wape([float("nan"), 1], [1])  # NaN actual and short forecasts: length is reported
+
+
+def test_mae_checks_length_before_the_finite_check():
+    with pytest.raises(ValueError, match="length"):
+        mae([float("nan")], [])  # NaN actual and no forecasts: length is reported
+
+
+def test_mae_checks_empty_before_the_finite_check():
+    with pytest.raises(ValueError, match="no test"):
+        mae([], [float("nan")])  # empty actuals with a NaN forecast: the empty-window error wins
+
+
+def _meets_target_at(achieved, tmp_path, monkeypatch):
+    """Run the pipeline on one SKU whose simulated cycle service level is `achieved`,
+    with target 0.75 and tolerance 0.25 (both exact in binary), so the cutoff is exactly 0.5."""
+    (tmp_path / "data").mkdir()
+    cfg = json.loads((ROOT / "config.json").read_text())
+    cfg.update(service_target=0.75, tolerance=0.25)
+    (tmp_path / "config.json").write_text(json.dumps(cfg))
+    units = [1 + i % 3 for i in range(52)]
+    (tmp_path / "data" / "weekly_demand.csv").write_text(
+        "iso_week,stock_code,units\n" + "".join(f"2011-W{i + 1:02d},10000,{u}\n" for i, u in enumerate(units)))
+    (tmp_path / "data" / "sku_price.csv").write_text("stock_code,median_unit_price,description\n10000,2.00,item\n")
+    stub = lambda *a: {"cycle_service_level": achieved, "fill_rate": 1.0, "stockout_weeks_per_year": 0.0,
+                       "avg_inventory": 1.0, "turns": 1.0, "orders": 1}
+    monkeypatch.setattr(pipeline, "ROOT", tmp_path)
+    monkeypatch.setattr(pipeline, "simulate", stub)
+    return pipeline.run()["skus"][0]["meets_target"]
+
+
+def test_meets_target_counts_the_exact_boundary_as_meeting(tmp_path, monkeypatch):
+    assert _meets_target_at(0.5, tmp_path, monkeypatch) is True  # achieved == target - tolerance
+
+
+def test_meets_target_fails_just_below_the_boundary(tmp_path, monkeypatch):
+    assert _meets_target_at(0.5 - 2.0 ** -20, tmp_path, monkeypatch) is False
