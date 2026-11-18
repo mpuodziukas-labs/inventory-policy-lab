@@ -94,3 +94,9 @@ Where the lab differs from a source:
 - The simulation raises ValueError for a window of zero weeks. Fill rate and turns need no further guard: a completed cycle needs demand to have drawn stock down to the reorder point, and an arrival after warm-up leaves stock above zero at that week's end.
 - Skewness of a constant series (standard deviation 0) is returned as 0.0. That is a convention, not a mathematical result: the ratio is undefined and 0 is the value of a symmetric series.
 - `decompose` raises ValueError when demand variance and lead-time variance are both zero: a zero total has no shares, and a made-up split would name a false main cause. Constant demand alone does not trigger it while lead time varies; the lead-time part then carries a share of 1.
+- A negative simulation window is rejected like a zero one: `simulate` raises ValueError when weeks is at or below zero.
+- `mae` raises ValueError when actuals and forecasts differ in length, in either direction; an empty actuals list is reported as no test weeks before the length check, so the empty-test-window error names its real cause.
+- Skewness treats only an exactly zero standard deviation as constant. `statistics.stdev` is exact for equal floats (0.1, 1/3 and similar give 0.0), so no tolerance is needed and a tiny but real spread keeps its skewness.
+- Actuals are demand and cannot be negative: `wape` raises ValueError on any negative actual and keeps its separate error for a zero sum. For valid input a sum is never negative, so a test for a sum at or below zero is the same test as the zero-sum one.
+- `decompose` requires lead time, both standard deviations and mean demand to be non-negative, else ValueError. A total of variance parts is then never negative, so the zero check is the only one that can fire.
+- The pipeline error for a SKU without test-window demand keeps the original WAPE error as its cause, so the chain shows why.

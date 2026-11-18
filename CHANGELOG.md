@@ -12,3 +12,4 @@
 - test: pin service range, negative buffer, no-cycle, min order, selftest control, description
 - fix: WAPE, MAE and zero-length window raise clear errors; pipeline names the SKU
 - fix: constant-demand skewness is 0 by convention; decompose rejects zero variance
+- fix: reject negative windows, actuals and decompose inputs, mae length mismatch; pin skewness and error chain

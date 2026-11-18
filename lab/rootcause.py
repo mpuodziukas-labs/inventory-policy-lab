@@ -2,6 +2,8 @@
 
 
 def decompose(lead_time, sigma_d, mean_d, sigma_l):
+    if min(lead_time, sigma_d, mean_d, sigma_l) < 0:
+        raise ValueError("lead time, standard deviations and mean demand must be non-negative")
     demand_part = lead_time * sigma_d**2
     lead_part = mean_d**2 * sigma_l**2
     total = demand_part + lead_part

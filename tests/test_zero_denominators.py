@@ -35,8 +35,10 @@ def test_pipeline_names_a_sku_with_no_demand_in_its_test_window(tmp_path, monkey
                        "avg_inventory": 1.0, "turns": 1.0, "orders": 1}
     monkeypatch.setattr(pipeline, "ROOT", tmp_path)
     monkeypatch.setattr(pipeline, "simulate", stub)
-    with pytest.raises(ValueError, match="10000"):
+    with pytest.raises(ValueError, match="10000") as err:
         pipeline.run()
+    assert isinstance(err.value.__cause__, ValueError)
+    assert "WAPE is undefined" in str(err.value.__cause__)
 
 
 def test_simulation_rejects_a_zero_length_window():
@@ -66,3 +68,54 @@ def test_decompose_rejects_zero_total_variance():
 def test_decompose_constant_demand_with_lead_time_spread_is_all_lead_time():
     """sigma_d = 0 alone is not a zero total: the lead-time part carries all the variance."""
     assert decompose(2, 0, 50, 0.5) == (0.0, 1.0)
+
+
+def test_simulation_rejects_a_negative_window():
+    with pytest.raises(ValueError, match="weeks"):
+        simulate([10], 5, 50, [1], [1.0], 1, -1, 0)
+
+
+def test_mae_rejects_empty_actuals_with_forecasts_present():
+    with pytest.raises(ValueError, match="no test"):
+        mae([], [1, 2, 3])
+
+
+def test_mae_rejects_a_length_mismatch_either_way():
+    with pytest.raises(ValueError, match="length"):
+        mae([1, 2, 3], [])
+    with pytest.raises(ValueError, match="length"):
+        mae([1, 2, 3], [1, 2])
+    with pytest.raises(ValueError, match="length"):
+        mae([1, 2], [1, 2, 3])
+
+
+def test_skewness_of_tiny_but_nonzero_spread_is_not_collapsed_to_zero():
+    """29 zeros and one 2**-40: spread is far below 1e-9 yet the series is clearly right-skewed.
+    Hand-worked: sample sd = e/sqrt(30); the outlier has z = 29/sqrt(30), the rest -1/sqrt(30);
+    skewness = (29**3 - 29) / 30**1.5 / 30 = 4.94167..."""
+    e = 2.0 ** -40
+    got = pipeline.skewness([0.0] * 29 + [e])
+    assert got == pytest.approx(29 * 840 / 30 ** 1.5 / 30, rel=1e-9)
+    assert got > 0
+    assert pipeline.skewness([e] * 29 + [0.0]) < 0
+
+
+def test_skewness_of_constant_non_integer_demand_is_exactly_zero():
+    """statistics.stdev is exact for equal floats, so the zero test is safe for 0.1 and 1/3 too."""
+    for v in (0.1, 0.3, 1 / 3, 2.2):
+        assert pipeline.skewness([v] * 30) == 0.0
+
+
+def test_wape_rejects_negative_actuals():
+    with pytest.raises(ValueError, match="negative"):
+        wape([5, -1, 4], [1, 2, 3])
+    with pytest.raises(ValueError, match="negative"):
+        wape([-3, 0], [1, 2])  # negative sum
+    with pytest.raises(ValueError, match="zero"):
+        wape([0, 0], [1, 2])  # zero sum keeps its own error
+
+
+def test_decompose_rejects_negative_inputs():
+    for args in ((-1, 1, 50, 0.5), (2, -1, 50, 0.5), (2, 1, -50, 0.5), (2, 1, 50, -0.5)):
+        with pytest.raises(ValueError, match="non-negative"):
+            decompose(*args)
