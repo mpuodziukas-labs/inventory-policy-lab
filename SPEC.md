@@ -22,22 +22,24 @@ Edge over typical write-ups: every formula is tested against a hand-worked textb
 
 ## Requirement to test trace
 
-Counts are from 10 live Supply Chain / Inventory / Demand Planning Analyst postings sampled 2026-11-17 (no company names).
+Counts are from 10 live US-remote Supply Chain / Inventory / Demand Planning Analyst postings sampled 2026-11-17 (no company names). Rows are ordered by count, highest first.
 
 | Requirement | Seen in | File | Test id | Status |
 |-------------|---------|------|---------|--------|
-| Forecasting / demand planning: moving average and simple exponential smoothing, rolling-origin backtest, MAE and WAPE per SKU and overall, naive baseline | 7/10 | lab/forecast.py | tests/test_forecast.py::test_ses_hand_worked, tests/test_forecast.py::test_moving_average_hand_worked, tests/test_forecast.py::test_rolling_origin_has_no_lookahead, tests/test_forecast.py::test_wape_hand_worked | PROVEN |
-| KPIs / metrics: service level, fill rate, stockout weeks, average inventory, turns | 7/10 | policy/simulate.py | tests/test_simulation.py::test_kpis_hand_worked | PROVEN |
-| Dashboards / reporting: static report, inline SVG, no external assets | 9/10 | lab/render.py | tests/test_report.py::test_report_is_static_and_self_contained | PROVEN |
-| Recommendations / insights: numbers regenerated | 8/10 | docs/recommendation.md | tests/test_report.py::test_recommendation_matches_regenerated_numbers | PROVEN |
-| Root cause analysis: demand variability vs lead-time variability decomposition for SKUs that miss target | 6/10 | lab/rootcause.py | tests/test_rootcause.py::test_variance_decomposition_hand_worked | PROVEN |
-| Inventory / safety stock | 4/10 | policy/formulas.py | tests/test_formulas.py::test_eoq_hand_worked_textbook, tests/test_formulas.py::test_safety_stock_worked_example | PROVEN |
-| Data quality: extract checks | 5/10 | tests/test_data_quality.py | tests/test_data_quality.py::test_weekly_demand_checks | PROVEN |
-| Spreadsheets | 9/10 | none | none | GAP |
-| Logistics / procurement / supplier management (no supplier data in the source) | 9/10 | none | none | GAP |
+| Inventory / safety stock | 10/10 | policy/formulas.py | tests/test_formulas.py::test_eoq_hand_worked_textbook, tests/test_formulas.py::test_safety_stock_worked_example | PROVEN |
+| Spreadsheets | 10/10 | none | none | GAP |
+| Forecasting / demand planning: moving average and simple exponential smoothing, rolling-origin backtest, MAE and WAPE per SKU and overall, naive baseline | 9/10 | lab/forecast.py | tests/test_forecast.py::test_ses_hand_worked, tests/test_forecast.py::test_moving_average_hand_worked, tests/test_forecast.py::test_rolling_origin_has_no_lookahead, tests/test_forecast.py::test_wape_hand_worked | PROVEN |
+| Stakeholders / cross-functional (docs/recommendation.md is a written output, no test shows it serves a stakeholder) | 9/10 | none | none | GAP |
+| Communication (docs/recommendation.md is a written output, no test shows its clarity) | 9/10 | none | none | GAP |
+| Logistics / procurement / supplier management (no supplier data in the source) | 7/10 | none | none | GAP |
 | ERP | 6/10 | none | none | GAP |
-| A BI tool | 6/10 | none | none | GAP |
-| Financial modelling (only holding and ordering cost assumptions are modelled) | 6/10 | none | none | GAP |
+| Dashboards / reporting: static report, inline SVG, no external assets | 6/10 | lab/render.py | tests/test_report.py::test_report_is_static_and_self_contained | PROVEN |
+| Recommendations / insights: numbers regenerated | 5/10 | docs/recommendation.md | tests/test_report.py::test_recommendation_matches_regenerated_numbers | PROVEN |
+| KPIs / metrics: service level, fill rate, stockout weeks, average inventory, turns | 4/10 | policy/simulate.py | tests/test_simulation.py::test_kpis_hand_worked | PROVEN |
+| Root cause analysis: demand variability vs lead-time variability decomposition for SKUs that miss target | 4/10 | lab/rootcause.py | tests/test_rootcause.py::test_variance_decomposition_hand_worked | PROVEN |
+| A BI tool | 4/10 | none | none | GAP |
+| Financial modelling (only holding and ordering cost assumptions are modelled) | 2/10 | none | none | GAP |
+| Data quality: extract checks | 1/10 | tests/test_data_quality.py | tests/test_data_quality.py::test_weekly_demand_checks | PROVEN |
 
 Gaps are never claimed in the README or the report.
 

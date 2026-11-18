@@ -7,3 +7,4 @@
 - feat: report, recommendation, README results block, CI
 - docs: changelog
 - test: receipts for selftest and regen
+- test: trace, report and README drift tests; trace table recounted

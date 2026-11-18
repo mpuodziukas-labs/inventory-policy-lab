@@ -1,0 +1,7 @@
+RED 1, trace test against the SPEC before tests/test_report.py exists:
+FAILED tests/test_trace.py::test_every_proven_row_names_existing_test_functions
+AssertionError: Dashboards / reporting: static report, inline SVG, no external assets: missing file tests/test_report.py
+1 failed, 2 passed
+
+RED 2, README drift test against a copy with one digit edited (SKUs meeting target 31 to 32):
+FAILED tests/test_readme_drift.py::test_readme_results_block_equals_generated
