@@ -85,3 +85,8 @@ Where the lab differs from a source:
 - Simulation: weekly steps, lost sales on a shortage, orders placed at end of week when inventory position is at or below the reorder point, order arrives at end of week t+L. Cycle service level is the share of orders with no shortage inside their lead-time window. Fill rate is units served over units demanded. Demand is an i.i.d. bootstrap of the SKU's own weekly history.
 - A SKU meets target when achieved cycle service level is at least target minus the tolerance in `config.json`.
 - The planted fault drops the lead-time scaling of the demand term: z * sqrt(sigma_d^2 + d^2 * sigma_L^2) instead of z * sqrt(L * sigma_d^2 + d^2 * sigma_L^2).
+- Service level must lie strictly between 0 and 1 (anything else raises ValueError). z is not clamped at either end. Below 50% z is negative, safety stock is then negative, and the reorder point keeps that negative buffer.
+- A simulation run that completes no order cycle raises ValueError instead of reporting a service level.
+- The order quantity is at least 1 unit, so a near-zero-demand SKU never gets an order size of 0.
+- `make selftest` exits 0 only when the correct formula passes the check and the planted fault fails it; either one wrong exits 1.
+- A SKU's description is the most common description among its sale rows.
