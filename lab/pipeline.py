@@ -36,6 +36,8 @@ def load_prices():
 
 def skewness(xs):
     m, s = mean(xs), stdev(xs)
+    if s == 0:
+        return 0.0  # constant series: skewness is undefined, 0 by convention
     return sum(((x - m) / s) ** 3 for x in xs) / len(xs)
 
 

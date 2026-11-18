@@ -8,3 +8,6 @@ FAILED tests/test_readme_drift.py::test_readme_results_block_equals_generated
 
 RED 3, zero-denominator tests before the fix:
 4 failed, 1 passed (wape, mae, pipeline SKU name, zero-length window)
+
+RED 4, constant-demand tests before the fix:
+2 failed, 65 passed (skewness, decompose)

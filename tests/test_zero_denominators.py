@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 from lab import pipeline  # noqa: E402
 from lab.forecast import mae, wape  # noqa: E402
+from lab.rootcause import decompose  # noqa: E402
 from policy.simulate import simulate  # noqa: E402
 
 
@@ -48,3 +49,20 @@ def test_simulation_with_zero_demand_raises_no_cycle_error():
     and no cycle completes: the fill-rate and turns ratios are never reached."""
     with pytest.raises(ValueError, match="cycle"):
         simulate([0], 5, 50, [1], [1.0], 1, 50, 5)
+
+
+def test_skewness_of_constant_demand_is_zero_by_convention():
+    assert pipeline.skewness([7] * 30) == 0.0
+    assert pipeline.skewness([0] * 30) == 0.0
+
+
+def test_decompose_rejects_zero_total_variance():
+    with pytest.raises(ValueError, match="zero"):
+        decompose(2, 0, 50, 0)  # constant demand and no lead-time spread
+    with pytest.raises(ValueError, match="zero"):
+        decompose(2, 0, 0, 0.5)  # constant zero demand
+
+
+def test_decompose_constant_demand_with_lead_time_spread_is_all_lead_time():
+    """sigma_d = 0 alone is not a zero total: the lead-time part carries all the variance."""
+    assert decompose(2, 0, 50, 0.5) == (0.0, 1.0)

@@ -92,3 +92,5 @@ Where the lab differs from a source:
 - A SKU's description is the most common description among its sale rows.
 - WAPE and MAE are undefined without demand: `wape` raises ValueError when the test-window actuals sum to zero and `mae` raises on an empty test window. The pipeline fails and names the SKU rather than skipping it, so every reported number always covers all SKUs.
 - The simulation raises ValueError for a window of zero weeks. Fill rate and turns need no further guard: a completed cycle needs demand to have drawn stock down to the reorder point, and an arrival after warm-up leaves stock above zero at that week's end.
+- Skewness of a constant series (standard deviation 0) is returned as 0.0. That is a convention, not a mathematical result: the ratio is undefined and 0 is the value of a symmetric series.
+- `decompose` raises ValueError when demand variance and lead-time variance are both zero: a zero total has no shares, and a made-up split would name a false main cause. Constant demand alone does not trigger it while lead time varies; the lead-time part then carries a share of 1.

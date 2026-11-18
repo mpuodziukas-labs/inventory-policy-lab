@@ -5,6 +5,8 @@ def decompose(lead_time, sigma_d, mean_d, sigma_l):
     demand_part = lead_time * sigma_d**2
     lead_part = mean_d**2 * sigma_l**2
     total = demand_part + lead_part
+    if total == 0:
+        raise ValueError("variance shares are undefined: demand and lead-time variance are both zero")
     return demand_part / total, lead_part / total
 
 
