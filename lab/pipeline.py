@@ -225,9 +225,14 @@ def run(safety_stock_fn=safety_stock):
         d, sd = mean(ys), stdev(ys)
         h = cfg["holding_rate_per_year"] * price
         try:
-            q = max(1, round(eoq(d * WEEKS_PER_YEAR, cfg["ordering_cost_per_order"], h)))
+            q_raw = eoq(d * WEEKS_PER_YEAR, cfg["ordering_cost_per_order"], h)
         except ValueError as e:
-            raise ValueError(f"SKU {code} has no demand in any week: {e}") from e
+            if not any(ys):
+                raise ValueError(f"SKU {code} has no demand in any week: {e}") from e
+            raise ValueError(f"SKU {code}: {e}") from e
+        if not math.isfinite(q_raw):
+            raise ValueError(f"SKU {code}: order quantity is not finite")
+        q = max(1, round(q_raw))
         ss = safety_stock_fn(z, protect, sd, d, lead_sd)
         rop = reorder_point(d, protect, ss)
         sim = simulate(ys, rop, q, lv, lp, cfg["seed"] + i, cfg["sim_weeks"], cfg["sim_warmup_weeks"])
