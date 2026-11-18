@@ -16,3 +16,4 @@
 - fix: pin wape check order, reject length mismatch and non-finite inputs
 - test: pin length-before-finite order in wape and mae, meets_target boundary
 - test: pin draw fallback, short-history average, lead-time weights, tie and marker handling; drop unused next-week forecast
+- fix: regen rejects reversed or duplicated README markers before writing; pin render, extract, config, message and order-loop behaviour; tests renamed by subject

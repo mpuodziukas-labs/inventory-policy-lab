@@ -20,6 +20,10 @@ def write_csv(path, rows, fields):
 
 
 def main():
+    readme = ROOT / "README.md"
+    text = readme.read_text()
+    if text.count(START) != 1 or text.count(END) != 1 or text.index(START) > text.index(END):
+        sys.exit("README markers missing or not exactly one START before one END")
     res = pipeline.run()
     (ROOT / "report").mkdir(exist_ok=True)
     (ROOT / "docs").mkdir(exist_ok=True)
@@ -32,10 +36,6 @@ def main():
               ["code", "mean_weekly", "sd_weekly", "eoq", "safety_stock", "reorder_point", "cycle_service_level",
                "fill_rate", "stockout_weeks_per_year", "avg_inventory", "turns", "wape_naive", "wape_ma",
                "wape_ses", "meets_target", "cause"])
-    readme = ROOT / "README.md"
-    text = readme.read_text()
-    if START not in text or END not in text:
-        sys.exit("README markers missing")
     head, rest = text.split(START, 1)
     tail = rest.split(END, 1)[1]
     readme.write_text(f"{head}{START}\n{render.render_readme_block(res)}{END}{tail}")

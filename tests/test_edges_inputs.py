@@ -74,7 +74,7 @@ def test_selftest_fails_when_the_clean_control_is_red(monkeypatch):
 
 
 def test_sku_description_is_the_most_common_one(tmp_path, monkeypatch):
-    spec = importlib.util.spec_from_file_location("make_extract_r2", ROOT / "scripts" / "make_extract.py")
+    spec = importlib.util.spec_from_file_location("make_extract_inputs", ROOT / "scripts" / "make_extract.py")
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
     d1, d2, d3 = datetime(2011, 1, 4, 10), datetime(2011, 1, 11, 10), datetime(2011, 1, 12, 10)
