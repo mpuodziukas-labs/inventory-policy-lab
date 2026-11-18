@@ -5,3 +5,6 @@ AssertionError: Dashboards / reporting: static report, inline SVG, no external a
 
 RED 2, README drift test against a copy with one digit edited (SKUs meeting target 31 to 32):
 FAILED tests/test_readme_drift.py::test_readme_results_block_equals_generated
+
+RED 3, zero-denominator tests before the fix:
+4 failed, 1 passed (wape, mae, pipeline SKU name, zero-length window)

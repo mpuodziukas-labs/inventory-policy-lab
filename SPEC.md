@@ -90,3 +90,5 @@ Where the lab differs from a source:
 - The order quantity is at least 1 unit, so a near-zero-demand SKU never gets an order size of 0.
 - `make selftest` exits 0 only when the correct formula passes the check and the planted fault fails it; either one wrong exits 1.
 - A SKU's description is the most common description among its sale rows.
+- WAPE and MAE are undefined without demand: `wape` raises ValueError when the test-window actuals sum to zero and `mae` raises on an empty test window. The pipeline fails and names the SKU rather than skipping it, so every reported number always covers all SKUs.
+- The simulation raises ValueError for a window of zero weeks. Fill rate and turns need no further guard: a completed cycle needs demand to have drawn stock down to the reorder point, and an arrival after warm-up leaves stock above zero at that week's end.

@@ -20,6 +20,8 @@ def _draw(rng, values, probs):
 
 
 def simulate(history, reorder_point, order_qty, lead_values, lead_probs, seed, weeks, warmup):
+    if weeks <= 0:
+        raise ValueError("weeks must be positive")
     rng = random.Random(seed)
     n = len(history)
     total = warmup + weeks

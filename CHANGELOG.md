@@ -10,3 +10,4 @@
 - test: trace, report and README drift tests; trace table recounted
 - test: edge tests for simulation, extract, report and regen; spec row statuses
 - test: pin service range, negative buffer, no-cycle, min order, selftest control, description
+- fix: WAPE, MAE and zero-length window raise clear errors; pipeline names the SKU

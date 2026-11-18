@@ -28,9 +28,13 @@ def rolling_origin(series, method, min_train):
 
 
 def mae(actuals, forecasts):
+    if not actuals:
+        raise ValueError("MAE is undefined: no test weeks (the series is no longer than the training minimum)")
     return sum(abs(a - f) for a, f in zip(actuals, forecasts)) / len(actuals)
 
 
 def wape(actuals, forecasts):
-    """Sum of absolute errors over sum of actuals (defined when some weeks are zero)."""
+    """Sum of absolute errors over sum of actuals (defined when some weeks are zero, undefined when all are)."""
+    if sum(actuals) == 0:
+        raise ValueError("WAPE is undefined: the actuals sum to zero")
     return sum(abs(a - f) for a, f in zip(actuals, forecasts)) / sum(actuals)

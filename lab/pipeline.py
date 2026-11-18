@@ -77,7 +77,10 @@ def run(safety_stock_fn=safety_stock):
         for name, fn in methods.items():
             f_, a_ = fc.rolling_origin(ys, fn, cfg["min_train_weeks"])
             row[f"mae_{name}"] = fc.mae(a_, f_)
-            row[f"wape_{name}"] = fc.wape(a_, f_)
+            try:
+                row[f"wape_{name}"] = fc.wape(a_, f_)
+            except ValueError as e:
+                raise ValueError(f"SKU {code} has no demand in its test window: {e}") from e
             row[f"next_{name}"] = fn(ys)
             err_sum[name] += sum(abs(x - y) for x, y in zip(a_, f_))
         act_sum += sum(a_)
