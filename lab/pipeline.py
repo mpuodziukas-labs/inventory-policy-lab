@@ -21,6 +21,10 @@ def load_config():
 def validate_config(cfg):
     if cfg["service_target"] not in cfg["service_levels"]:
         raise ValueError(f"service_levels must include the service target {cfg['service_target']}")
+    if 0.95 not in cfg["service_levels"] or 0.975 not in cfg["service_levels"]:
+        raise ValueError("service_levels must include 0.95 and 0.975, the two levels the report compares")
+    if not all(0.5 <= v < 1 for v in (cfg["service_target"], *cfg["service_levels"])):
+        raise ValueError("service target and service levels must be at least 0.5 and below 1")
     if not (math.isfinite(cfg["tolerance"]) and cfg["tolerance"] >= 0):
         raise ValueError("tolerance must be finite and not negative")
     if not 0 < cfg["ses_alpha"] <= 1:

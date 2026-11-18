@@ -148,6 +148,7 @@ def test_backtest_starts_after_the_configured_minimum_training_weeks(run_with):
 
 
 def test_sensitivity_table_lists_the_configured_service_levels(run_with):
-    res, _ = run_with(service_levels=[0.80, 0.925, 0.95])
-    assert [r["service_level"] for r in res["sensitivity"]] == [0.80, 0.925, 0.95]
-    assert [r["z"] for r in res["sensitivity"]] == [z_for_service(0.80), z_for_service(0.925), z_for_service(0.95)]
+    levels = [0.80, 0.925, 0.95, 0.975]
+    res, _ = run_with(service_levels=levels)
+    assert [r["service_level"] for r in res["sensitivity"]] == levels
+    assert [r["z"] for r in res["sensitivity"]] == [z_for_service(v) for v in levels]

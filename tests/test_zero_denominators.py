@@ -195,7 +195,7 @@ def _meets_target_at(achieved, tmp_path, monkeypatch):
     with target 0.75 and tolerance 0.25 (both exact in binary), so the cutoff is exactly 0.5."""
     (tmp_path / "data").mkdir()
     cfg = json.loads((ROOT / "config.json").read_text())
-    cfg.update(service_target=0.75, tolerance=0.25, service_levels=[0.75])
+    cfg.update(service_target=0.75, tolerance=0.25, service_levels=[0.75, 0.95, 0.975])
     (tmp_path / "config.json").write_text(json.dumps(cfg))
     units = [1 + i % 3 for i in range(52)]
     (tmp_path / "data" / "weekly_demand.csv").write_text(

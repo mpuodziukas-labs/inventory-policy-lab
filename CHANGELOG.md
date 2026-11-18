@@ -21,3 +21,4 @@
 - fix: reject bad simulate, moving-average, backtest and empty-workbook inputs; pin config, message, ranking and fetch-default behaviour
 - fix: reject ragged series, empty forecast series and bad simulate history, warm-up, window and lead types; extract exits on under one full week and tolerates a missing description
 - fix: simulate rejects an infinite reorder point, fractional warm-up and non-finite order quantity; data files and config are validated up front and regen writes nothing when a run fails; CI workflow and guard order pinned
+- fix: config must list service levels 0.95 and 0.975 and keep the target and every level in [0.5, 1)

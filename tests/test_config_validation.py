@@ -46,6 +46,14 @@ def _untouched(d):
 
 @pytest.mark.parametrize("overrides, message", [
     ({"service_levels": [0.9, 0.975, 0.99]}, "service_levels must include the service target 0.95"),
+    ({"service_levels": [0.9, 0.95, 0.99]},
+     "service_levels must include 0.95 and 0.975, the two levels the report compares"),
+    ({"service_target": 0.3, "service_levels": [0.3, 0.95, 0.975]},
+     "service target and service levels must be at least 0.5 and below 1"),
+    ({"service_levels": [0.95, 0.975, 1.0]},
+     "service target and service levels must be at least 0.5 and below 1"),
+    ({"service_levels": [0.4, 0.95, 0.975]},
+     "service target and service levels must be at least 0.5 and below 1"),
     ({"tolerance": -0.01}, "tolerance must be finite and not negative"),
     ({"tolerance": float("nan")}, "tolerance must be finite and not negative"),
     ({"ses_alpha": 0}, "ses_alpha must be above 0 and at most 1"),
@@ -88,7 +96,24 @@ def test_the_committed_config_is_valid():
     pipeline.validate_config(pipeline.load_config())
 
 
-@pytest.mark.parametrize("overrides", [{"ses_alpha": 1}, {"ses_alpha": 1.0}, {"ses_alpha": 0.0001},
-                                       {"tolerance": 0}, {"sim_warmup_weeks": 0}])
+@pytest.mark.parametrize("overrides", [
+    {"ses_alpha": 1}, {"ses_alpha": 1.0}, {"ses_alpha": 0.0001}, {"tolerance": 0}, {"sim_warmup_weeks": 0},
+    {"service_target": 0.5, "service_levels": [0.5, 0.95, 0.975]},
+    {"service_target": 0.999, "service_levels": [0.95, 0.975, 0.999]},
+])
 def test_boundary_values_of_the_config_are_accepted(overrides):
     pipeline.validate_config(dict(pipeline.load_config(), **overrides))
+
+
+def test_no_sku_reaches_simulate_with_a_negative_reorder_point_at_the_lowest_allowed_target(stage, monkeypatch):
+    stage(service_target=0.5, service_levels=[0.5, 0.95, 0.975])
+    seen = []
+
+    def spy(history, rop, *rest):
+        seen.append(rop)
+        return _stub_sim(history, rop, *rest)
+
+    monkeypatch.setattr(pipeline, "simulate", spy)
+    pipeline.run()
+    assert len(seen) == 40
+    assert min(seen) >= 0
