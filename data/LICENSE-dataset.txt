@@ -1,0 +1,13 @@
+Dataset: Online Retail
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Attribution:
+Chen, D. (2015). Online Retail. UCI Machine Learning Repository.
+https://doi.org/10.24432/C5BW33
+
+Licence confirmed from the dataset source page on 2026-11-17.
+
+data/weekly_demand.csv and data/sku_price.csv are derived extracts of that
+dataset (weekly aggregation of 40 SKUs, median unit price). Changes made are
+described in data/SOURCE.md.
