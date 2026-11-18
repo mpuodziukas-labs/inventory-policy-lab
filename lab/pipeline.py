@@ -19,6 +19,8 @@ def load_config():
         return json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
     except UnicodeDecodeError as e:
         raise ValueError("config.json is not valid UTF-8") from e
+    except json.JSONDecodeError as e:
+        raise ValueError("config.json is not valid JSON") from e
 
 
 # Every key the code reads, in config.json order, with the type it must have.
@@ -103,8 +105,8 @@ def load_series():
     rows = _read_rows("weekly_demand.csv", ("iso_week", "stock_code", "units"))
     if not rows:
         raise ValueError("weekly_demand.csv: no data rows")
-    series, seen = {}, set()
-    for r in rows:
+    series, seen, weeks_of = {}, set(), {}
+    for n, r in enumerate(rows, start=2):
         code, week = r["stock_code"], r["iso_week"]
         if code is None or week is None:
             raise ValueError("weekly_demand.csv: a row is missing its stock code or week")
@@ -115,6 +117,12 @@ def load_series():
         if (code, week) in seen:
             raise ValueError(f"weekly_demand.csv: duplicate row for SKU {code} in week {week}")
         seen.add((code, week))
+        prev = weeks_of.setdefault(code, [])
+        if prev and week < prev[-1]:
+            raise ValueError(
+                f"weekly_demand.csv: row {n}: weeks for SKU {code} must be in ascending order, "
+                f"but {week} follows {prev[-1]}")
+        prev.append(week)
         cell = r["units"]
         try:
             units = int(cell) if isinstance(cell, str) and cell.isascii() and cell.isdigit() else -1
@@ -124,6 +132,10 @@ def load_series():
             raise ValueError(
                 f"weekly_demand.csv: units for SKU {code} in week {week} must be a whole number of at least 0")
         series.setdefault(code, []).append(units)
+    first = sorted(weeks_of)[0]
+    for code in sorted(weeks_of):
+        if len(weeks_of[code]) == len(weeks_of[first]) and weeks_of[code] != weeks_of[first]:
+            raise ValueError(f"weekly_demand.csv: SKU {code} covers different weeks than SKU {first}")
     return {k: series[k] for k in sorted(series)}
 
 
@@ -135,6 +147,11 @@ def load_prices():
             raise ValueError("sku_price.csv: a row is missing its stock code")
         if code != code.strip():
             raise ValueError(f"sku_price.csv: stock code has surrounding whitespace: '{code}'")
+        if code in prices:
+            raise ValueError(f"sku_price.csv: duplicate row for SKU {code}")
+        if isinstance(cell, str) and cell != cell.strip():
+            raise ValueError(
+                f"sku_price.csv: median_unit_price for SKU {code} has surrounding whitespace: '{cell}'")
         try:
             price = float(cell) if isinstance(cell, str) and cell.isascii() and "_" not in cell else math.nan
         except ValueError:
@@ -202,7 +219,10 @@ def run(safety_stock_fn=safety_stock):
         row["meets_target"] = sim["cycle_service_level"] >= target - tol
         for name, fn in methods.items():
             f_, a_ = fc.rolling_origin(ys, fn, cfg["min_train_weeks"])
-            row[f"mae_{name}"] = fc.mae(a_, f_)
+            try:
+                row[f"mae_{name}"] = fc.mae(a_, f_)
+            except ValueError as e:
+                raise ValueError(f"SKU {code} has an empty test window: {e}") from e
             try:
                 row[f"wape_{name}"] = fc.wape(a_, f_)
             except ValueError as e:

@@ -66,7 +66,7 @@ def _misses(res):
 def render_recommendation(res):
     s = res["summary"]
     miss = _misses(res)
-    sens = {round(r["service_level"], 4): r for r in res["sensitivity"]}
+    sens = {r["service_level"]: r for r in res["sensitivity"]}
     base, hi = sens[0.95], sens[0.975]
     lines = [
         "# Recommendation",
@@ -148,7 +148,7 @@ def _cost_chart(res):
     w, h, left, bottom, top = 720, 220, 70, 36, 14
     top_val = max(r["total_holding_cost"] for r in rows)
     plot_h = h - top - bottom
-    bw = 90
+    bw = min(90, (w - left - 10) / len(rows) * 0.6)
     gap = (w - left - 10 - bw * len(rows)) / (len(rows) + 1)
     parts = [f'<svg viewBox="0 0 {w} {h}" role="img" aria-label="Annual holding cost by service level">']
     parts.append(f'<line x1="{left}" x2="{left}" y1="{top}" y2="{h - bottom}" class="grid"/>')
@@ -159,8 +159,8 @@ def _cost_chart(res):
         ss_h = r["safety_stock_holding_cost"] / top_val * plot_h
         cy_h = (r["total_holding_cost"] - r["safety_stock_holding_cost"]) / top_val * plot_h
         base = h - bottom
-        parts.append(f'<rect x="{x:.1f}" y="{base - cy_h:.1f}" width="{bw}" height="{cy_h:.1f}" class="cycle"><title>Cycle stock</title></rect>')
-        parts.append(f'<rect x="{x:.1f}" y="{base - cy_h - ss_h:.1f}" width="{bw}" height="{ss_h:.1f}" class="safety"><title>Safety stock</title></rect>')
+        parts.append(f'<rect x="{x:.1f}" y="{base - cy_h:.1f}" width="{bw:g}" height="{cy_h:.1f}" class="cycle"><title>Cycle stock</title></rect>')
+        parts.append(f'<rect x="{x:.1f}" y="{base - cy_h - ss_h:.1f}" width="{bw:g}" height="{ss_h:.1f}" class="safety"><title>Safety stock</title></rect>')
         parts.append(f'<text x="{x + bw / 2:.1f}" y="{base + 16}" text-anchor="middle" class="tick">{pct(r["service_level"])}</text>')
     parts.append("</svg>")
     return "\n".join(parts)

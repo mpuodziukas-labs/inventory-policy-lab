@@ -205,7 +205,7 @@ def test_a_price_cell_must_be_ascii_without_underscores(lab_dir, cell):
         pipeline.run()
 
 
-@pytest.mark.parametrize("cell, want", [("2.50", 2.5), ("1e1", 10.0), (" 2.5", 2.5)])
+@pytest.mark.parametrize("cell, want", [("2.50", 2.5), ("1e1", 10.0)])
 def test_ordinary_price_cells_are_still_accepted(lab_dir, cell, want):
     files(lab_dir, price=[f'A,"{cell}",bag'])
     assert pipeline.load_prices()["A"][0] == want

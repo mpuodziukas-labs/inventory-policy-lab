@@ -24,3 +24,4 @@
 - fix: config must list service levels 0.95 and 0.975 and keep the target and every level in [0.5, 1)
 - fix: validate every config key, reject padded codes, strict number cells, BOM-safe UTF-8, pin check order
 - fix: invalid UTF-8 in config or README raises a named ValueError; test: pin config order and bounds, encodings, units and price cells, simulate stockout window, ses start, selftest exits and lines
+- fix: NaN and infinity rejected in the formulas, weeks must ascend and match across SKUs, duplicate or padded price rows rejected, JSON errors named, MAE error names the SKU, chart bars fit any level count, exact-level lookup; test: pin 24 surviving mutants and add hand-worked MAE, overall WAPE and extract-fixture tests

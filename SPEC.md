@@ -28,7 +28,7 @@ Counts are from 10 live US-remote Supply Chain / Inventory / Demand Planning Ana
 |-------------|---------|------|---------|--------|
 | Inventory / safety stock | 10/10 | policy/formulas.py | tests/test_formulas.py::test_eoq_hand_worked_textbook, tests/test_formulas.py::test_safety_stock_worked_example | PROVEN |
 | Spreadsheets | 10/10 | none | none | GAP |
-| Forecasting / demand planning: moving average and simple exponential smoothing, rolling-origin backtest, MAE and WAPE per SKU and overall, naive baseline | 9/10 | lab/forecast.py | tests/test_forecast.py::test_ses_hand_worked, tests/test_forecast.py::test_moving_average_hand_worked, tests/test_forecast.py::test_rolling_origin_has_no_lookahead, tests/test_forecast.py::test_wape_hand_worked | PROVEN |
+| Forecasting / demand planning: moving average and simple exponential smoothing, rolling-origin backtest, MAE and WAPE per SKU and overall, naive baseline | 9/10 | lab/forecast.py | tests/test_forecast.py::test_ses_hand_worked, tests/test_forecast.py::test_moving_average_hand_worked, tests/test_forecast.py::test_rolling_origin_has_no_lookahead, tests/test_forecast.py::test_wape_hand_worked, tests/test_forecast.py::test_mae_hand_worked, tests/test_hand_worked_pipeline.py::test_per_sku_mae_and_wape_hand_worked, tests/test_hand_worked_pipeline.py::test_overall_wape_hand_worked | PROVEN |
 | Stakeholders / cross-functional (docs/recommendation.md is a written output, no test shows it serves a stakeholder) | 9/10 | none | none | GAP |
 | Communication: written output, numbers tested; no live presentation | 9/10 | docs/recommendation.md | tests/test_report.py::test_recommendation_matches_regenerated_numbers | PARTIAL |
 | Logistics / procurement / supplier management (no supplier data in the source) | 7/10 | none | none | GAP |
@@ -36,10 +36,10 @@ Counts are from 10 live US-remote Supply Chain / Inventory / Demand Planning Ana
 | Dashboards / reporting: static report, inline SVG, no external assets | 6/10 | lab/render.py | tests/test_report.py::test_report_is_static_and_self_contained | PROVEN |
 | Recommendations / insights: numbers regenerated | 5/10 | docs/recommendation.md | tests/test_report.py::test_recommendation_matches_regenerated_numbers | PROVEN |
 | KPIs / metrics: service level, fill rate, stockout weeks, average inventory, turns | 4/10 | policy/simulate.py | tests/test_simulation.py::test_kpis_hand_worked | PROVEN |
-| Root cause analysis: demand variability vs lead-time variability decomposition for SKUs that miss target | 4/10 | lab/rootcause.py | tests/test_rootcause.py::test_variance_decomposition_hand_worked | PROVEN |
+| Root cause analysis: demand variability vs lead-time variability decomposition for SKUs that miss target | 4/10 | lab/rootcause.py | tests/test_rootcause.py::test_variance_decomposition_hand_worked, tests/test_render_misses.py::test_recommendation_with_a_miss_renders_the_table_and_count | PROVEN |
 | A BI tool | 4/10 | none | none | GAP |
 | Financial modelling (only holding and ordering cost assumptions are modelled) | 2/10 | none | none | GAP |
-| Data quality: extract checks | 1/10 | tests/test_data_quality.py | tests/test_data_quality.py::test_weekly_demand_checks | PROVEN |
+| Data quality: extract checks | 1/10 | tests/test_data_quality.py | tests/test_data_quality.py::test_weekly_demand_checks, tests/test_extract_checks_fixture.py::test_extract_output_passes_the_data_quality_checks_on_a_small_fixture | PROVEN |
 
 Gaps are never claimed in the README or the report.
 
@@ -57,6 +57,30 @@ flowchart LR
   G --> F
   E --> F
 ```
+
+### Config values
+
+`config.json` holds exactly these values; `tests/test_pins_misc.py` compares the two, so a changed value fails until this block is updated with it.
+
+<!-- CONFIG-VALUES:START -->
+```json
+{
+  "seed": 20261117,
+  "service_target": 0.95,
+  "service_levels": [0.90, 0.95, 0.975, 0.99],
+  "lead_time_weeks": {"values": [1, 2, 3], "probs": [0.125, 0.75, 0.125]},
+  "review_period_weeks": 1,
+  "ordering_cost_per_order": 50.0,
+  "holding_rate_per_year": 0.25,
+  "ma_window": 4,
+  "ses_alpha": 0.3,
+  "min_train_weeks": 26,
+  "sim_weeks": 5200,
+  "sim_warmup_weeks": 52,
+  "tolerance": 0.03
+}
+```
+<!-- CONFIG-VALUES:END -->
 
 ## Standards (fetched 2026-11-17)
 
@@ -123,4 +147,11 @@ Where the lab differs from a source:
 - Config bounds are exact, with no tolerance on a comparison: the service target and the levels 0.95 and 0.975 must be listed by equality (0.9500001 is not 0.95), the lower service bound is exactly 0.5 and the upper bound is exclusive, `tolerance` is at least 0 with no upper cap (1.0 and above are accepted), `ses_alpha` is above 0 and at most 1 exactly, `lead_time_weeks.values` and `probs` have equal length in both directions, a probability of exactly 0 is allowed and any negative one is rejected however small, and the probabilities sum to 1 within 1e-9 on either side. Lead `values` are type-checked before `probs`.
 - `config.json` and the README are read as UTF-8; a byte that is not valid UTF-8 raises ValueError naming the file ("config.json is not valid UTF-8", "README.md is not valid UTF-8"), and `regen` has written nothing by then. A units cell with a non-ASCII digit-like character (superscript two, a roman numeral, an Arabic-Indic digit) is rejected like any non-digit, and a units cell longer than Python's integer digit limit gets the same units error rather than the interpreter's own message. A description in `sku_price.csv` is kept exactly as written, leading and trailing spaces included.
 - `regen` writes LF line endings. A README with CRLF line endings is normalised on the first run and unchanged by the second.
+- A `config.json` that is not valid JSON raises ValueError "config.json is not valid JSON" with the parser error as its cause; it is never reported as a UTF-8 problem. The decode errors for `config.json` and the README keep the original `UnicodeDecodeError` as `__cause__`. `review_period_weeks` has no upper cap (60 is accepted).
+- Formulas reject NaN and infinity by name: `z_for_service`, `eoq`, `safety_stock` and `reorder_point` raise ValueError instead of returning NaN, which a comparison would then treat as a pass or a miss without saying so.
+- Weeks for a SKU must be strictly ascending in `weekly_demand.csv`: a row out of order raises "weekly_demand.csv: row N: weeks for SKU X must be in ascending order, but W follows V" (N counts the header as row 1). SKUs of equal length must list the same weeks, else "weekly_demand.csv: SKU B covers different weeks than SKU A". Different lengths still get the existing length error in `run`. The committed data satisfies both.
+- `sku_price.csv` rejects a second row for the same stock code ("duplicate row for SKU X") and a price cell with surrounding whitespace ("median_unit_price for SKU X has surrounding whitespace"); before, a later row silently replaced the first and a padded price was accepted.
+- A SKU whose test window is empty is named by `run` ("SKU X has an empty test window: ..."), as the zero-demand WAPE case already was.
+- The cost chart bar width is the smaller of 90 and 60 percent of each bar's slot, so any number of service levels stays inside the canvas without overlap; with the four configured levels the bars stay 90 wide and the report is byte-identical. The recommendation finds the 0.95 and 0.975 rows by exact level, not by a value rounded to four places, so a level such as 0.97500001 cannot shadow the 0.975 row.
 - Proved equivalent in the mutation review, so no test exists for them: the repeat-level check (`len(set(x)) != len(x)` is the same as `<` because a set is never longer than its list); the demand loader's duplicate check against the whitespace checks (a padded code or week fails on its first row, so a duplicate of it is never reached); isdigit against isnumeric after the ASCII check; the README marker comparison `>` against `>=` (START and END are different strings, so they cannot start at the same index); the tail split after the last END against the first (the guard has already required exactly one END); the zero-inventory guard on `turns` and the zero-demand guard on `fill_rate` in `simulate` (an order recorded after warm-up needs demand above 0 in a counted week, and a completed cycle lands an order of at least 1 unit in a counted week, so neither denominator is 0 when the function returns); `mae` dividing by the forecast count (the length check already made it equal to the actuals count); the `decompose` zero-total test `== 0` against `<= 0` (both variance parts are at least 0); the input order inside the `decompose` check (the checks are independent for numeric input).
+- Proved equivalent in the second mutation review (seven survivors, each tried against a differing input first): the sum order in the sensitivity `total_holding_cost` (`ss_cost + cycle_cost` against `cycle_cost + ss_cost`; floating-point addition is commutative, 200000 random pairs differed 0 times, and inf plus nan is nan both ways); the `short_week` list length in `simulate` (`total + 2` against `total + 1`; the largest index written is `total` and a slice past the end is empty, so no read or write reaches the extra slot); `max(on_hand, 0)` in the inventory sum (the opening stock is the reorder point plus the order quantity, both validated at least 0 and above 0, and `sold = min(on_hand, d)` keeps `on_hand` at or above 0; the one input that would differ, a negative reorder point, is rejected before the loop); the lead-probability test `<=` against `<` at exactly 1e-9 (a sum within 2**-53 steps of 1 gives `abs(sum - 1)` as a whole multiple of 2**-53, and 1e-9 is not one, so the two sides never meet); the `parents=True` on the output folders in `regen` (report, docs and results sit directly under the repository root, which exists because the README was just read from it); `or 1.0` on the chart's top value (the total is cycle cost plus safety cost and cycle cost is above 0 for every validated SKU, so the divisor is never 0; only a hand-built all-zero result reaches the difference, and it raises ZeroDivisionError without the guard); `max(0.0, gap)` on the bar gap (the width rule above keeps the gap above 0 for every level count, checked for 1 to 200000).
