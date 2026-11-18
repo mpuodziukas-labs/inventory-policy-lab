@@ -31,3 +31,4 @@
 - test: pin 8 more surviving mutants (other read errors are not renamed, a cell of 300000 characters, the csv limit restored on every path); SPEC lists two proved equivalents and the non-UTF-8 data file rule
 - fix: a SKU with zero demand in every week is named in the pipeline error; test: pin surviving mutant I2924 (tiny and subnormal variance totals) and list three proved equivalents
 - fix: other eoq errors keep the SKU, a non-finite order quantity or variance total raises a named ValueError; test: pin eight surviving mutants
+- test: pin seven surviving mutants (zero-demand message for a SKU with some demand, variance total from the lead part, negative reorder point, shortage flag, README byte order mark) and list three proved equivalents
